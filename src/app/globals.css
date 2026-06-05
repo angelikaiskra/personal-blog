@@ -1,0 +1,56 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.235 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-fg: oklch(0.45 0 0);
+  --border: oklch(0.92 0 0);
+  --accent: oklch(0.8203 0.1449 79.11);
+  --accent-fg: oklch(0.98 0 0);
+  --card: oklch(1 0 0);
+  --card-border: oklch(0.90 0 0);
+  --code-bg: oklch(0.97 0 0);
+}
+
+.dark {
+  --background: oklch(0.11 0 0);
+  --foreground: oklch(0.95 0 0);
+  --muted: oklch(0.17 0 0);
+  --muted-fg: oklch(0.62 0 0);
+  --border: oklch(0.24 0 0);
+  --accent: oklch(0.70 0.18 293);
+  --accent-fg: oklch(0.10 0 0);
+  --card: oklch(0.14 0 0);
+  --card-border: oklch(0.22 0 0);
+  --code-bg: oklch(0.17 0 0);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-fg: var(--muted-fg);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-card: var(--card);
+  --color-card-border: var(--card-border);
+  --color-code-bg: var(--code-bg);
+
+  --font-sans: var(--font-outfit);
+  --font-mono: var(--font-jetbrains);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-outfit, sans-serif);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
