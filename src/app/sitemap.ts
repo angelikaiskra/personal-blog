@@ -1,7 +1,7 @@
-import type { MetadataRoute } from "next";
-import { allPosts } from "content-collections";
+import type { MetadataRoute } from 'next';
+import { allPosts } from 'content-collections';
 
-const BASE_URL = "https://angela-iskra.vercel.app";
+const BASE_URL = 'https://angelaiskra.com';
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const posts = allPosts
@@ -9,7 +9,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     .map((p) => ({
       url: `${BASE_URL}/blog/${p._meta.path}`,
       lastModified: new Date(p.lastUpdated),
-      changeFrequency: "weekly" as const,
+      changeFrequency: 'weekly' as const,
       priority: 0.8,
     }));
 

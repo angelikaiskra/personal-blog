@@ -1,19 +1,18 @@
-import { postTags } from "@/config/tags";
-import { defineCollection, defineConfig } from "@content-collections/core";
-import readingTime from "reading-time";
-import { z } from "zod";
+import { postTags } from '@/config/tags';
+import { defineCollection, defineConfig } from '@content-collections/core';
+import readingTime from 'reading-time';
+import { z } from 'zod';
 
 const posts = defineCollection({
-  name: "posts",
-  directory: "content/posts",
-  include: "*.mdx",
+  name: 'posts',
+  directory: 'content/posts',
+  include: '*.mdx',
   schema: z.object({
     title: z.string(),
-    description: z.string(),
+    excerpt: z.string(),
     created: z.string(),
     lastUpdated: z.string(),
     tags: z.array(z.enum(postTags)),
-    image: z.string().optional(),
     published: z.boolean().default(true),
     content: z.string(),
   }),

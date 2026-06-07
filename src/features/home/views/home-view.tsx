@@ -1,78 +1,72 @@
-import Link from "next/link";
-import { allPosts } from "content-collections";
+import { allPosts } from 'content-collections';
+import { MaxWidthContainer } from '@/components/ui/max-width-container';
+import { SparklesIcon } from '@/components/icons/sparkles-icon';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
+import { AnimatedLink } from '@/components/ui/animated-link';
+import { Button } from "@/components/ui/button";
+import { ArrowRightIcon } from "@/components/icons/arrow-right-icon";
 
 export function HomeView() {
-    const recentPosts = allPosts
-        .filter((p) => p.published)
-        .sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime())
-        .slice(0, 5);
+  const recentPosts = allPosts
+    .filter((p) => p.published)
+    .sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime())
+    .slice(0, 10);
 
-    return (
-        <div className="mx-auto max-w-3xl px-4 py-20">
-            {/* Hero */}
-            <section className="mb-20">
-                <p className="mb-3 font-mono text-sm text-accent">cześć, jestem</p>
-                <h1 className="mb-4 text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
-                    Angela Iskra
-                </h1>
-                <p className="max-w-lg text-lg text-muted-fg leading-relaxed">
-                    Frontend developer zakochana w React i TypeScript. Tu wrzucam notatki,
-                    triki i odkrycia — żeby nie zapomnieć i może komuś się przydać.
-                </p>
-                <div className="mt-8 flex gap-3">
-                    <Link
-                        href="/blog"
-                        className="inline-flex h-10 items-center justify-center rounded-md bg-accent px-5 text-sm font-medium text-accent-fg hover:opacity-90 transition-opacity"
-                    >
-                        Czytaj blog
-                    </Link>
-                    <Link
-                        href="/about"
-                        className="inline-flex h-10 items-center justify-center rounded-md border border-border px-5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
-                    >
-                        O mnie
-                    </Link>
-                </div>
-            </section>
-
-            {/* Recent posts */}
-            {recentPosts.length > 0 && (
-                <section>
-                    <h2 className="mb-6 text-sm font-medium uppercase tracking-wider text-muted-fg">
-                        Ostatnie posty
-                    </h2>
-                    <ul className="space-y-6">
-                        {recentPosts.map((post) => (
-                            <li key={post._meta.path}>
-                                <Link
-                                    href={`/blog/${post._meta.path}`}
-                                    className="group block"
-                                >
-                                    <p className="mb-1 text-xs font-mono text-muted-fg">
-                                        {new Date(post.lastUpdated).toLocaleDateString("pl-PL", {
-                                            year: "numeric",
-                                            month: "long",
-                                            day: "numeric",
-                                        })}
-                                    </p>
-                                    <h3 className="text-base font-medium text-foreground group-hover:text-accent transition-colors">
-                                        {post.title}
-                                    </h3>
-                                    <p className="mt-1 text-sm text-muted-fg line-clamp-2">
-                                        {post.description}
-                                    </p>
-                                </Link>
-                            </li>
-                        ))}
-                    </ul>
-                    <Link
-                        href="/blog"
-                        className="mt-8 inline-flex text-sm text-accent hover:underline"
-                    >
-                        Wszystkie posty →
-                    </Link>
-                </section>
-            )}
+  return (
+    <MaxWidthContainer>
+      <section className="mt-20">
+        <div className="flex max-w-[590px] flex-col gap-y-10">
+          <div className="flex items-center gap-x-2">
+            <Heading variant="h1" as="h1" className="text-5xl">
+              Hi, I&apos;m Angela!
+            </Heading>
+            <SparklesIcon className="size-12 text-accent" />
+          </div>
+          <Text as="p">
+            <span className="md:block">Frontend Developer crafting web experiences with React and TypeScript.</span>
+            I love technology and I&apos;m fascinated by how things work. This blog is where I share what I&apos;m
+            currently exploring, building and figuring out.
+          </Text>
+          <Button icon={<ArrowRightIcon />}>Contact me</Button>
         </div>
-    );
-};
+      </section>
+
+      {recentPosts.length > 0 && (
+        <section className="mt-20">
+          <Heading as="h2" variant="h1">
+            Latest posts
+          </Heading>
+
+          <ul className="divide-border divide-y mt-8">
+            {recentPosts.map((post) => (
+              <li key={post._meta.path} className="py-8 first:pt-0">
+                <article className="max-w-3xl">
+                  <Heading as="h3" variant="h3" className="mb-2">
+                    {post.title}
+                  </Heading>
+
+                  <div className="text-muted-fg mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                    <time dateTime={post.lastUpdated}>
+                      {new Date(post.lastUpdated).toDateString()}
+                    </time>
+                    <span className="bg-foreground rounded-full size-1" aria-hidden="true" />
+                    <span>{post.readingTime}</span>
+                  </div>
+
+                  <Text as="p" variant="body" className="mb-5 max-w-[680px]">
+                    {post.excerpt}
+                  </Text>
+
+                  <AnimatedLink href={`/blog/${post._meta.path}`}>Read more</AnimatedLink>
+                </article>
+              </li>
+            ))}
+          </ul>
+
+          <Button variant="secondary" icon={<ArrowRightIcon className="size-4" />}>Read more posts</Button>
+        </section>
+      )}
+    </MaxWidthContainer>
+  );
+}
