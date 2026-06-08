@@ -7,6 +7,7 @@ import { RssIcon } from '@/components/icons/rss-icon';
 import { EnvelopeIcon } from "@/components/icons/envelope-icon";
 import { MaxWidthContainer } from "./max-width-container";
 import { Text } from "./text";
+import { cn } from "@/lib/utils";
 
 const footerLinks = [
   [
@@ -46,20 +47,20 @@ const socialLinks = [
 
 export function Footer() {
   return (
-    <footer className="border-border border-t py-10">
+    <footer className="border-y border-inset border-black py-10">
       <MaxWidthContainer className="flex justify-between">
         <div className="text-muted-fg flex gap-x-25">
           <section className="space-y-2">
-            <Text as="p" variant="small">© {new Date().getFullYear()} Angelika Iskra</Text>
-            <Text as="p" variant="small" className="flex items-center gap-1.5">
-              Made with <HeartIcon className="size-4 text-[#FF4D5A]" /> in Szczecin, Poland
+            <Text as="p" variant="base">© {new Date().getFullYear()} Angelika Iskra</Text>
+            <Text as="p" variant="base" className="flex items-center gap-1.5">
+              Made with <HeartIcon className="size-4 text-foreground" /> in Poland
             </Text>
           </section>
 
           {footerLinks.map((column) => (
             <nav key={column[0].label} className="flex flex-col gap-3">
               {column.map((link) => (
-                <Text key={link.href} as="a" href={link.href} variant="small" className="hover:text-foreground transition-colors">
+                <Text key={link.href} as="a" href={link.href} variant="base" className="hover:text-foreground transition-colors">
                   {link.label}
                 </Text>
               ))}
@@ -80,7 +81,7 @@ export function Footer() {
                 aria-label={link.label}
                 className="text-muted-fg hover:text-foreground transition-colors"
               >
-                <Icon />
+                <Icon className="size-7" />
               </Link>
             );
           })}
