@@ -1,4 +1,4 @@
-import { postTags } from '@/config/tags';
+import { postTagKeys } from '@/config/tags';
 import { defineCollection, defineConfig } from '@content-collections/core';
 import readingTime from 'reading-time';
 import { z } from 'zod';
@@ -12,7 +12,7 @@ const posts = defineCollection({
     excerpt: z.string(),
     created: z.string(),
     lastUpdated: z.string(),
-    tags: z.array(z.enum(postTags)),
+    tags: z.array(z.enum(postTagKeys)),
     published: z.boolean().default(true),
     content: z.string(),
   }),

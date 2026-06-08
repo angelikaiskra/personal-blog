@@ -6,6 +6,8 @@ import { Text } from '@/components/ui/text';
 import { AnimatedLink } from '@/components/ui/animated-link';
 import { Button } from "@/components/ui/button";
 import { ArrowRightIcon } from "@/components/icons/arrow-right-icon";
+import { postTags } from "@/config/tags";
+import { Badge } from "@/components/ui/badge";
 
 export function HomeView() {
   const recentPosts = allPosts
@@ -14,7 +16,7 @@ export function HomeView() {
     .slice(0, 10);
 
   return (
-    <MaxWidthContainer>
+    <MaxWidthContainer className="pb-20">
       <section className="mt-20">
         <div className="flex max-w-[590px] flex-col gap-y-10">
           <div className="flex items-center gap-x-2">
@@ -32,8 +34,8 @@ export function HomeView() {
         </div>
       </section>
 
-      {recentPosts.length > 0 && (
-        <section className="mt-20">
+      <div className="mt-20 flex gap-x-20 justify-between">
+        <section>
           <Heading as="h2" variant="h1">
             Latest posts
           </Heading>
@@ -54,7 +56,7 @@ export function HomeView() {
                     <span>{post.readingTime}</span>
                   </div>
 
-                  <Text as="p" variant="body" className="mb-5 max-w-[680px]">
+                  <Text as="p" variant="body" className="mb-5 max-w-170">
                     {post.excerpt}
                   </Text>
 
@@ -64,9 +66,26 @@ export function HomeView() {
             ))}
           </ul>
 
-          <Button variant="secondary" icon={<ArrowRightIcon className="size-4" />}>Read more posts</Button>
+          <div className="w-full flex justify-center">
+            <Button variant="secondary" icon={<ArrowRightIcon className="size-4" />}>Read more posts</Button>
+          </div>
         </section>
-      )}
+
+        <aside>
+          <Heading as="h2" variant="h1">
+            Categories
+          </Heading>
+
+          <div className="mt-8 flex flex-wrap gap-3 max-w-72">
+            {postTags.map((tag) => (
+              <Badge key={tag.key} as="a" href={`/${tag.key}`}>
+                {tag.label}
+              </Badge>
+            ))}
+
+          </div>
+        </aside>
+      </div>
     </MaxWidthContainer>
   );
 }

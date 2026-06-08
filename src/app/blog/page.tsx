@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { allPosts } from 'content-collections';
-import { PostTag } from '@/config/tags';
+import { PostTagKey } from '@/config/tags';
 
 interface Props {
   searchParams: Promise<{ tag?: string }>;
@@ -11,7 +11,7 @@ export default async function BlogPage({ searchParams }: Props) {
 
   const posts = allPosts
     .filter((p) => p.published)
-    .filter((p) => (tag ? p.tags.includes(tag as PostTag) : true))
+    .filter((p) => (tag ? p.tags.includes(tag as PostTagKey) : true))
     .sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime());
 
   const allTags = Array.from(new Set(allPosts.flatMap((p) => p.tags))).sort();
@@ -26,11 +26,10 @@ export default async function BlogPage({ searchParams }: Props) {
         <div className="mb-10 flex flex-wrap gap-2">
           <Link
             href="/blog"
-            className={`rounded-full border px-3 py-1 text-xs transition-colors ${
-              !tag
-                ? 'border-accent bg-accent text-accent-fg'
-                : 'border-border text-muted-fg hover:border-foreground hover:text-foreground'
-            }`}
+            className={`rounded-full border px-3 py-1 text-xs transition-colors ${!tag
+              ? 'border-accent bg-accent text-accent-fg'
+              : 'border-border text-muted-fg hover:border-foreground hover:text-foreground'
+              }`}
           >
             Wszystkie
           </Link>
@@ -38,11 +37,10 @@ export default async function BlogPage({ searchParams }: Props) {
             <Link
               key={t}
               href={`/blog?tag=${t}`}
-              className={`rounded-full border px-3 py-1 text-xs transition-colors ${
-                tag === t
-                  ? 'border-accent bg-accent text-accent-fg'
-                  : 'border-border text-muted-fg hover:border-foreground hover:text-foreground'
-              }`}
+              className={`rounded-full border px-3 py-1 text-xs transition-colors ${tag === t
+                ? 'border-accent bg-accent text-accent-fg'
+                : 'border-border text-muted-fg hover:border-foreground hover:text-foreground'
+                }`}
             >
               {t}
             </Link>

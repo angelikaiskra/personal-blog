@@ -1,6 +1,5 @@
 import { notFound } from 'next/navigation';
 import { allPosts } from 'content-collections';
-import { MDXContent } from '@/components/ui/mdx/MDXContent';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -51,7 +50,7 @@ export default async function BlogPostPage({ params }: Props) {
       <div>
         {/* Article body */}
         <article className="prose prose-zinc dark:prose-invert prose-headings:font-semibold prose-headings:tracking-tight prose-a:text-accent prose-a:no-underline hover:prose-a:underline prose-code:before:content-none prose-code:after:content-none prose-code:rounded prose-code:bg-code-bg prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[0.85em] prose-code:font-mono max-w-none">
-          <MDXContent source={post.content} />
+          {/* <MDXContent source={post.content} /> */}
         </article>
       </div>
     </div>
