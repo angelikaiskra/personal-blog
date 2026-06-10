@@ -34,7 +34,7 @@ export function HomeView() {
         </div>
       </section>
 
-      <div className="mt-20 flex gap-x-20 justify-between">
+      <div className="mt-20 flex gap-x-20 justify-between flex-wrap">
         <section>
           <Heading as="h2" variant="h1">
             Latest posts

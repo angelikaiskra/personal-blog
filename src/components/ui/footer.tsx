@@ -48,8 +48,8 @@ const socialLinks = [
 export function Footer() {
   return (
     <footer className="border-y border-inset border-black py-10">
-      <MaxWidthContainer className="flex justify-between">
-        <div className="text-muted-fg flex gap-x-25">
+      <MaxWidthContainer className="flex justify-between flex-wrap">
+        <div className="text-muted-fg flex gap-x-25 flex-wrap">
           <section className="space-y-2">
             <Text as="p" variant="base">© {new Date().getFullYear()} Angelika Iskra</Text>
             <Text as="p" variant="base" className="flex items-center gap-1.5">
