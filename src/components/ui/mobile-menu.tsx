@@ -146,8 +146,8 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
                         isOpen ? 'translate-x-0 delay-100' : 'translate-x-full delay-0'
                     )}
                 >
-                    <nav className="pt-6 pl-6">
-                        <ul className="space-y-3">
+                    <nav className="pt-8 pl-6">
+                        <ul className="space-y-4">
                             {socialLinks.map((link) => {
                                 const Icon = link.icon;
 
