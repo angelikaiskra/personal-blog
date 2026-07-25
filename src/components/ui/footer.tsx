@@ -23,7 +23,7 @@ export function Footer() {
   ));
 
   return (
-    <footer className="border-inset text-muted-fg border-t border-black py-6 max-sm:border-b sm:py-10">
+    <footer className="border-inset text-muted-fg border-t border-black bg-surface py-6 max-sm:border-b sm:py-10">
       <MaxWidthContainer className="flex max-sm:flex-col max-sm:items-center max-sm:gap-y-8 sm:flex-wrap sm:justify-between">
         <section className="max-sm:flex max-sm:justify-center max-sm:gap-x-8 sm:hidden">{footerLinksContent}</section>
 

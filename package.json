@@ -22,6 +22,7 @@
     "@tailwindcss/typography": "^0.5.19",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "date-fns": "^4.4.0",
     "eslint-config-prettier": "^10.1.8",
     "motion": "^12.40.0",
     "next": "16.2.6",
