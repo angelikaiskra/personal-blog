@@ -1,74 +1,33 @@
 import Link from 'next/link';
 
-import { GithubIcon } from '@/components/icons/github-icon';
 import { HeartIcon } from '@/components/icons/heart-icon';
-import { LinkedinIcon } from '@/components/icons/linkedin-icon';
-import { RssIcon } from '@/components/icons/rss-icon';
-import { EnvelopeIcon } from "@/components/icons/envelope-icon";
-import { MaxWidthContainer } from "./max-width-container";
-import { Text } from "./text";
-import { cn } from "@/lib/utils";
-
-const footerLinks = [
-  [
-    { href: '/blog', label: 'Blog' },
-    { href: '/about', label: 'About' },
-  ],
-  [
-    { href: '/sitemap.xml', label: 'Sitemap' },
-    { href: '/privacy-policy', label: 'Privacy Policy' },
-  ],
-];
-
-const socialLinks = [
-  {
-    href: 'https://github.com/angela-iskra',
-    label: 'GitHub',
-    icon: GithubIcon,
-    external: true,
-  },
-  {
-    href: 'https://www.linkedin.com',
-    label: 'LinkedIn',
-    icon: LinkedinIcon,
-    external: true,
-  },
-  {
-    href: 'mailto:hello@angelaiskra.com',
-    label: 'Email',
-    icon: EnvelopeIcon,
-  },
-  {
-    href: '/feed.xml',
-    label: 'RSS',
-    icon: RssIcon,
-  },
-];
+import { footerLinkColumns, socialLinks } from '@/config/links';
+import { MaxWidthContainer } from './max-width-container';
+import { Text } from './text';
 
 export function Footer() {
+  const footerLinksContent = footerLinkColumns.map((column) => (
+    <nav key={column[0].label} className="flex gap-2.5 max-sm:flex-col max-sm:text-center sm:flex-col">
+      {column.map((link) => (
+        <Text
+          key={link.href}
+          as="a"
+          href={link.href}
+          variant="base"
+          className="hover:text-foreground transition-colors max-sm:underline max-sm:underline-offset-2"
+        >
+          {link.label}
+        </Text>
+      ))}
+    </nav>
+  ));
+
   return (
-    <footer className="border-y border-inset border-black py-10">
-      <MaxWidthContainer className="flex justify-between flex-wrap">
-        <div className="text-muted-fg flex gap-x-25 flex-wrap">
-          <section className="space-y-2">
-            <Text as="p" variant="base">© {new Date().getFullYear()} Angelika Iskra</Text>
-            <Text as="p" variant="base" className="flex items-center gap-1.5">
-              Made with <HeartIcon className="size-4 text-foreground" /> in Poland
-            </Text>
-          </section>
+    <footer className="border-inset text-muted-fg border-t border-black py-6 max-sm:border-b sm:py-10">
+      <MaxWidthContainer className="flex max-sm:flex-col max-sm:items-center max-sm:gap-y-8 sm:flex-wrap sm:justify-between">
+        <section className="max-sm:flex max-sm:justify-center max-sm:gap-x-8 sm:hidden">{footerLinksContent}</section>
 
-          {footerLinks.map((column) => (
-            <nav key={column[0].label} className="flex flex-col gap-3">
-              {column.map((link) => (
-                <Text key={link.href} as="a" href={link.href} variant="base" className="hover:text-foreground transition-colors">
-                  {link.label}
-                </Text>
-              ))}
-            </nav>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-x-5">
+        <section className="flex items-center gap-x-5 sm:order-3 sm:gap-x-4">
           {socialLinks.map((link) => {
             const Icon = link.icon;
 
@@ -81,11 +40,24 @@ export function Footer() {
                 aria-label={link.label}
                 className="text-muted-fg hover:text-foreground transition-colors"
               >
-                <Icon className="size-7" />
+                <Icon className="size-8 sm:size-7" />
               </Link>
             );
           })}
-        </div>
+        </section>
+
+        <section className="sm:order-1 sm:flex sm:gap-x-25">
+          <div className="space-y-2.5">
+            <Text as="p" variant="base">
+              © {new Date().getFullYear()} Angelika Iskra
+            </Text>
+            <Text as="p" variant="base" className="flex items-center gap-1.5">
+              Made with <HeartIcon className="text-foreground size-4" /> in Poland
+            </Text>
+          </div>
+
+          <div className="hidden gap-x-25 sm:flex">{footerLinksContent}</div>
+        </section>
       </MaxWidthContainer>
     </footer>
   );
