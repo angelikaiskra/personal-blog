@@ -8,7 +8,7 @@ const headingVariants = cva('font-heading tracking-tight', {
       h1: 'text-[32px] leading-[1.15] font-bold',
       h2: 'text-[22px] leading-[1.25] font-semibold',
       h3: 'text-[18px] leading-[1.35] font-semibold',
-      body: 'text-[18px] leading-[1.15] font-medium'
+      body: 'text-[18px] leading-[1.15] font-medium',
     },
     color: {
       default: 'text-foreground',

@@ -37,7 +37,7 @@ export function HomeView() {
         </div>
       </section>
 
-      <div className="mt-20 flex flex-wrap justify-between gap-x-20 md:flex-nowrap">
+      <div className="mt-20 flex flex-wrap justify-between gap-x-20 sm:mt-24 md:flex-nowrap">
         <section>
           <Heading as="h2" variant="h1">
             Latest posts
@@ -61,7 +61,7 @@ export function HomeView() {
                     {post.excerpt}
                   </Text>
 
-                  <AnimatedLink href={`/blog/${post._meta.path}`} className="mt-6">
+                  <AnimatedLink href={`/blog/${post._meta.path}`} className="mt-5">
                     Read more
                   </AnimatedLink>
                 </article>
