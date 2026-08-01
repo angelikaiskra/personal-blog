@@ -53,7 +53,7 @@ export function HomeView() {
 
                   <div className="text-muted-fg flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                     <time dateTime={post.lastUpdated}>{new Date(post.lastUpdated).toDateString()}</time>
-                    <span className="bg-foreground size-1 rounded-full" aria-hidden="true" />
+                    <span className="bg-muted-fg size-1.5 rounded-full" aria-hidden="true" />
                     <span>{post.readingTime}</span>
                   </div>
 

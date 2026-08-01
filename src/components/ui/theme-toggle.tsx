@@ -1,60 +1,48 @@
 'use client';
 
 import { useTheme } from 'next-themes';
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 
-export function ThemeToggle() {
+import { SunMoonIcon } from '@/components/icons/sun-moon-icon';
+import { cn } from '@/lib/utils';
+
+type ThemeToggleProps = {
+  className?: string;
+};
+
+const emptySubscribe = () => () => {};
+
+export function ThemeToggle({ className }: ThemeToggleProps) {
   const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => setMounted(true), []);
+  const mounted = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  );
+  const buttonClassName = cn(
+    'text-muted-fg dark:text-foreground hover:text-foreground hover:bg-muted flex h-9 items-center justify-center gap-2 rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current w-9 dark:hover:bg-border',
+    className,
+  );
 
   if (!mounted) {
-    return <button className="flex h-9 w-9 items-center justify-center rounded-md" aria-label="Przełącz motyw" />;
+    return (
+      <button type="button" disabled aria-label="Switch theme" className={cn(buttonClassName, 'invisible')}>
+        <SunMoonIcon isSun={false} />
+      </button>
+    );
   }
+
+  const isDark = resolvedTheme === 'dark';
+  const label = `Switch to ${isDark ? 'light' : 'dark'} mode`;
 
   return (
     <button
-      onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-      className="text-muted-fg hover:text-foreground hover:bg-muted flex h-9 w-9 items-center justify-center rounded-md transition-colors"
-      aria-label={resolvedTheme === 'dark' ? 'Włącz jasny motyw' : 'Włącz ciemny motyw'}
+      type="button"
+      onClick={() => setTheme(isDark ? 'light' : 'dark')}
+      className={buttonClassName}
+      aria-label={label}
     >
-      {resolvedTheme === 'dark' ? <SunIcon /> : <MoonIcon />}
+      <SunMoonIcon isSun={isDark} />
     </button>
-  );
-}
-
-function SunIcon() {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
-    </svg>
-  );
-}
-
-function MoonIcon() {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-    </svg>
   );
 }

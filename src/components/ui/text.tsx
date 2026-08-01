@@ -2,7 +2,7 @@ import type { ComponentPropsWithoutRef, ElementType } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
-const textVariants = cva('font-sans tracking-normal', {
+const textVariants = cva('font-sans tracking-normal dark:font-light', {
   variants: {
     variant: {
       small: 'text-[14px] leading-[1.15]',

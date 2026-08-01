@@ -19,8 +19,8 @@ export function Header() {
   return (
     <header
       className={cn(
-        'sticky top-0 z-40 w-full border-b bg-white transition-colors duration-150 ease-out',
-        isScrolled ? 'border-black' : 'border-transparent',
+        'bg-background sticky top-0 z-40 w-full border-b transition-colors duration-150 ease-out',
+        isScrolled ? 'dark:border-border border-black' : 'border-transparent',
       )}
     >
       <MaxWidthContainer className="flex h-20 items-center justify-between">
@@ -33,9 +33,12 @@ export function Header() {
 
         <nav className="hidden items-center gap-x-10 sm:flex">
           {navigationLinks.map((link) => (
-            <Link key={link.href} href={link.href} className="group relative inline-flex">
-              <Heading className="text-base transition-colors">{link.label}</Heading>
-              <span className="transition-width absolute -bottom-1 left-0 h-0.5 w-0 bg-black duration-500 group-hover:w-full group-focus-visible:w-full" />
+            <Link
+              key={link.href}
+              href={link.href}
+              className="text-muted-fg dark:text-foreground hover:text-foreground hover:bg-muted dark:hover:bg-muted-hover -mx-3 inline-flex h-9 items-center rounded-md px-3 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current dark:hover:text-[#F5F0E6]"
+            >
+              <Heading className="text-base text-inherit">{link.label}</Heading>
             </Link>
           ))}
           <ThemeToggle />
@@ -48,13 +51,12 @@ export function Header() {
 function Avatar({ isMobileMenuOpen }: { isMobileMenuOpen: boolean }) {
   return (
     <Image
-      src="/avatar.webp"
+      src="/avatar-pixelated.webp"
       alt="Angelika Iskra"
       width={48}
       height={48}
       className={cn(
         'relative z-[60] rounded-full transition-[filter] duration-500 ease-[cubic-bezier(0.77,0,0.175,1)]',
-        // TODO: Change the image to be pixel-styled instead of grayscale
         isMobileMenuOpen ? 'contrast-125 grayscale' : 'contrast-100 grayscale-0 delay-0',
       )}
     />

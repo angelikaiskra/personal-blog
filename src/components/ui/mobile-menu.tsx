@@ -5,6 +5,8 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { type Dispatch, type SetStateAction, useEffect } from 'react';
 
+import { ThemeToggle } from './theme-toggle';
+
 type MobileMenuProps = {
   isOpen: boolean;
   setIsOpen: Dispatch<SetStateAction<boolean>>;
@@ -80,7 +82,7 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
         <div
           id="dark-panel"
           className={cn(
-            'bg-foreground absolute top-0 left-0 z-20 h-2/3 w-full rounded-2xl border border-black transition-transform duration-500 ease-[cubic-bezier(0.77,0,0.175,1)]',
+            'bg-foreground dark:border-border absolute top-0 left-0 z-20 h-2/3 w-full rounded-2xl border border-black transition-transform duration-500 ease-[cubic-bezier(0.77,0,0.175,1)]',
             isOpen ? 'translate-x-0 delay-100' : '-translate-x-full delay-0',
           )}
         >
@@ -98,13 +100,14 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
                 </li>
               ))}
             </ul>
+            <ThemeToggle className="text-muted hover:bg-muted/10 hover:text-background mt-10 -ml-3" />
           </nav>
         </div>
 
         <div
           id="light-panel"
           className={cn(
-            'bg-muted absolute top-2/3 right-0 z-20 h-1/3 w-full rounded-2xl border border-black transition-transform duration-500 ease-[cubic-bezier(0.77,0,0.175,1)]',
+            'bg-muted dark:border-border absolute top-2/3 right-0 z-20 h-1/3 w-full rounded-2xl border border-black transition-transform duration-500 ease-[cubic-bezier(0.77,0,0.175,1)]',
             isOpen ? 'translate-x-0 delay-100' : 'translate-x-full delay-0',
           )}
         >
