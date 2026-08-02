@@ -5,6 +5,7 @@ import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { AnimatedLink } from '@/components/ui/animated-link';
 import { Button } from '@/components/ui/button';
+import { ArrowRightLongIcon } from '@/components/icons/arrow-right-long-icon';
 import { ArrowRightIcon } from '@/components/icons/arrow-right-icon';
 import { postTags } from '@/config/tags';
 import { Badge } from '@/components/ui/badge';
@@ -31,7 +32,7 @@ export function HomeView() {
             love technology and I&apos;m fascinated by how things work. This blog is where I share what I&apos;m
             currently exploring, building and figuring out.
           </Text>
-          <Button icon={<ArrowRightIcon className="size-5" />} className="max-sm:mt-3">
+          <Button icon={<ArrowRightLongIcon className="size-5" />} className="max-sm:mt-3">
             Contact me
           </Button>
         </div>
@@ -61,7 +62,7 @@ export function HomeView() {
                     {post.excerpt}
                   </Text>
 
-                  <AnimatedLink href={`/blog/${post._meta.path}`} className="mt-5">
+                  <AnimatedLink href={`/blog/${post._meta.path}`} hoverAnimation="arrowMarquee" className="mt-5">
                     Read more
                   </AnimatedLink>
                 </article>

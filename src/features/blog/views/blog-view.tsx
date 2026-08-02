@@ -54,7 +54,7 @@ export function BlogView() {
                   {post.excerpt}
                 </Text>
 
-                <AnimatedLink href={`/blog/${post._meta.path}`} className="mt-6">
+                <AnimatedLink href={`/blog/${post._meta.path}`} hoverAnimation="arrowMarquee" className="mt-6">
                   Read more
                 </AnimatedLink>
               </Card>
