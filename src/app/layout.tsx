@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import { Outfit, Montserrat } from 'next/font/google';
 import { ThemeProvider } from 'next-themes';
 
+import { MotionProvider } from '@/components/providers/motion-provider';
+
 import './globals.css';
 
 const outfit = Outfit({
@@ -29,12 +31,14 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${outfit.variable} ${montserratMono.variable} antialiased`}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          {children}
-        </ThemeProvider>
-      </body>
-    </html>
+    <MotionProvider>
+      <html lang="en" suppressHydrationWarning>
+        <body className={`${outfit.variable} ${montserratMono.variable} antialiased`}>
+          <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+            {children}
+          </ThemeProvider>
+        </body>
+      </html>
+    </MotionProvider>
   );
 }
