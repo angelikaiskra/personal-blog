@@ -10,7 +10,7 @@ type ReadMoreArrowIconProps = {
   className?: string;
 };
 
-const animationDuration = 1.8;
+const animationDuration = 2;
 const chevronDelays = [0, animationDuration / 3, (animationDuration * 2) / 3];
 
 export function ReadMoreArrowIcon({ isAnimated = false, className }: ReadMoreArrowIconProps) {
