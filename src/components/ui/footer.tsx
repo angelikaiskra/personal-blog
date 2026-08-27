@@ -38,9 +38,9 @@ export function Footer() {
                 target={link.external ? '_blank' : undefined}
                 rel={link.external ? 'noopener noreferrer' : undefined}
                 aria-label={link.label}
-                className="text-muted-fg hover:text-foreground transition-colors"
+                className="group text-muted-fg hover:text-foreground transition-colors"
               >
-                <Icon className="size-8 sm:size-7" />
+                <Icon className="size-8 motion-safe:transition-transform motion-safe:duration-200 motion-safe:ease-in-out motion-safe:group-hover:-translate-y-0.5 motion-safe:group-focus-visible:-translate-y-0.5 sm:size-7" />
               </Link>
             );
           })}

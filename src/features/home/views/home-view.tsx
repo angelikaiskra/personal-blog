@@ -1,4 +1,5 @@
 import { allPosts } from 'content-collections';
+import Link from 'next/link';
 import { MaxWidthContainer } from '@/components/ui/max-width-container';
 import { SparklesIcon } from '@/components/icons/sparkles-icon';
 import { Heading } from '@/components/ui/heading';
@@ -9,6 +10,7 @@ import { ArrowRightLongIcon } from '@/components/icons/arrow-right-long-icon';
 import { ArrowRightIcon } from '@/components/icons/arrow-right-icon';
 import { postTags } from '@/config/tags';
 import { Badge } from '@/components/ui/badge';
+import { format, parseISO } from 'date-fns';
 
 export function HomeView() {
   const recentPosts = allPosts
@@ -49,11 +51,16 @@ export function HomeView() {
               <li key={post._meta.path} className="py-8 first:pt-0">
                 <article className="max-w-3xl">
                   <Heading as="h3" variant="h3" className="mb-2 font-bold">
-                    {post.title}
+                    <Link
+                      href={`/blog/${post._meta.path}`}
+                      className="decoration-link-accent decoration-2 underline-offset-2 hover:underline focus-visible:underline"
+                    >
+                      {post.title}
+                    </Link>
                   </Heading>
 
                   <div className="text-muted-fg flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                    <time dateTime={post.lastUpdated}>{new Date(post.lastUpdated).toDateString()}</time>
+                    <time dateTime={post.lastUpdated}>{format(parseISO(post.lastUpdated), 'MMMM do, yyyy')}</time>
                     <span className="bg-muted-fg size-1.5 rounded-full" aria-hidden="true" />
                     <span>{post.readingTime}</span>
                   </div>
@@ -62,7 +69,7 @@ export function HomeView() {
                     {post.excerpt}
                   </Text>
 
-                  <AnimatedLink href={`/blog/${post._meta.path}`} hoverAnimation="arrowMarquee" className="mt-5">
+                  <AnimatedLink href={`/blog/${post._meta.path}`} hoverAnimation="arrowSlide" className="mt-5">
                     Read more
                   </AnimatedLink>
                 </article>
@@ -84,7 +91,7 @@ export function HomeView() {
 
           <div className="mt-8 flex flex-wrap gap-3 sm:max-w-72">
             {postTags.map((tag) => (
-              <Badge key={tag.key} as="a" href={`/${tag.key}`}>
+              <Badge key={tag.key} as={Link} href={`/category/${tag.key}`}>
                 {tag.label}
               </Badge>
             ))}

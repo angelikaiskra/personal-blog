@@ -49,7 +49,7 @@ export function BlogView({ selectedTag }: BlogViewProps) {
                 key={tag.key}
                 as={Link}
                 className={cn('px-4', isSelected && 'bg-primary hover:bg-primary-hover')}
-                href={`/blog/category/${tag.key}`}
+                href={`/category/${tag.key}`}
                 aria-current={isSelected ? 'page' : undefined}
               >
                 {tag.label}
@@ -65,7 +65,12 @@ export function BlogView({ selectedTag }: BlogViewProps) {
             <li key={post._meta.path}>
               <Card as="article">
                 <Heading as="h2" variant="h3" className="font-bold">
-                  {post.title}
+                  <Link
+                    href={`/blog/${post._meta.path}`}
+                    className="decoration-link-accent decoration-2 underline-offset-2 hover:underline focus-visible:underline"
+                  >
+                    {post.title}
+                  </Link>
                 </Heading>
 
                 <div className="text-muted-fg mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
@@ -78,7 +83,7 @@ export function BlogView({ selectedTag }: BlogViewProps) {
                   {post.excerpt}
                 </Text>
 
-                <AnimatedLink href={`/blog/${post._meta.path}`} hoverAnimation="arrowMarquee" className="mt-6">
+                <AnimatedLink href={`/blog/${post._meta.path}`} hoverAnimation="arrowSlide" className="mt-6">
                   Read more
                 </AnimatedLink>
               </Card>

@@ -1,14 +1,11 @@
-'use client';
-
 import { type LinkProps } from 'next/link';
-import { type AnchorHTMLAttributes, type ReactNode, useState } from 'react';
-import { useReducedMotion } from 'motion/react';
+import { type AnchorHTMLAttributes, type ReactNode } from 'react';
 
-import { ReadMoreArrowIcon } from '@/components/icons/read-more-arrow-icon';
+import { ArrowRightIcon } from '@/components/icons/arrow-right-icon';
 import { cn } from '@/lib/utils';
 import { Link } from './link';
 
-export type LinkAnimation = 'underline' | 'arrowMarquee';
+export type LinkAnimation = 'underline' | 'arrowSlide';
 
 type AnimatedLinkProps = LinkProps &
   Omit<AnchorHTMLAttributes<HTMLAnchorElement>, keyof LinkProps> & {
@@ -16,40 +13,10 @@ type AnimatedLinkProps = LinkProps &
     hoverAnimation?: LinkAnimation;
   };
 
-export function AnimatedLink({
-  children,
-  hoverAnimation = 'underline',
-  className,
-  onPointerEnter,
-  onPointerLeave,
-  onFocus,
-  onBlur,
-  ...props
-}: AnimatedLinkProps) {
-  const [isHovered, setIsHovered] = useState(false);
-  const [isFocused, setIsFocused] = useState(false);
-  const prefersReducedMotion = useReducedMotion();
-  const isArrowAnimated = hoverAnimation === 'arrowMarquee' && !prefersReducedMotion && (isHovered || isFocused);
-
+export function AnimatedLink({ children, hoverAnimation = 'underline', className, ...props }: AnimatedLinkProps) {
   return (
     <Link
-      className={cn('group relative', hoverAnimation === 'arrowMarquee' && 'items-center gap-x-2', className)}
-      onPointerEnter={(event) => {
-        onPointerEnter?.(event);
-        setIsHovered(true);
-      }}
-      onPointerLeave={(event) => {
-        onPointerLeave?.(event);
-        setIsHovered(false);
-      }}
-      onFocus={(event) => {
-        onFocus?.(event);
-        setIsFocused(true);
-      }}
-      onBlur={(event) => {
-        onBlur?.(event);
-        setIsFocused(false);
-      }}
+      className={cn('group relative', hoverAnimation === 'arrowSlide' && 'items-center gap-x-1.5', className)}
       {...props}
     >
       {children}
@@ -58,8 +25,8 @@ export function AnimatedLink({
         <span className="bg-foreground absolute -bottom-1 left-0 h-px w-full origin-left scale-x-0 transition-transform duration-300 ease-out group-hover:scale-x-100" />
       )}
 
-      {hoverAnimation === 'arrowMarquee' && (
-        <ReadMoreArrowIcon className="text-link-accent" isAnimated={isArrowAnimated} />
+      {hoverAnimation === 'arrowSlide' && (
+        <ArrowRightIcon className="text-link-accent size-5 shrink-0 motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-in-out motion-safe:group-hover:translate-x-1.5 motion-safe:group-focus-visible:translate-x-1.5" />
       )}
     </Link>
   );

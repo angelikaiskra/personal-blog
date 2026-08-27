@@ -4,6 +4,15 @@ import { withContentCollections } from '@content-collections/next';
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  async redirects() {
+    return [
+      {
+        source: '/blog/category/:category',
+        destination: '/category/:category',
+        permanent: true,
+      },
+    ];
+  },
   turbopack: {
     resolveAlias: {
       'content-collections': './.content-collections/generated/index.js',
