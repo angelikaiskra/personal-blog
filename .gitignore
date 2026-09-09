@@ -40,8 +40,13 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# tests
+.playwright-mcp
+
 # cache
 .content-collections
 
 # AI files
 .agents
+.img2threejs
+.tools
