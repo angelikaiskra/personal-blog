@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { CAT_IDLE, createCatAnimationController } from './cat-animation-controller';
 import { createCatAnimationRig } from './cat-animation-rig';
+import { createCatInteraction } from './cat-interaction-controller';
 import { createVoxelCatModel, type VoxelCatModel } from './create-voxel-cat-model';
 
 /** Near-parallel reference edges: approximately 27° yaw and 18° elevation. */
@@ -26,6 +27,7 @@ function VoxelCatScene({ model, bounds }: { model: VoxelCatModel; bounds: THREE.
   const animation = useRef<{
     controller: ReturnType<typeof createCatAnimationController>;
     rig: ReturnType<typeof createCatAnimationRig>;
+    interaction: ReturnType<typeof createCatInteraction>;
     running: boolean;
     firstFrame: boolean;
   } | null>(null);
@@ -53,7 +55,8 @@ function VoxelCatScene({ model, bounds }: { model: VoxelCatModel; bounds: THREE.
   useEffect(() => {
     const controller = createCatAnimationController();
     const rig = createCatAnimationRig(model);
-    const state = { controller, rig, running: false, firstFrame: true };
+    const interaction = createCatInteraction(model);
+    const state = { controller, rig, interaction, running: false, firstFrame: true };
     animation.current = state;
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
     let visible = false;
@@ -64,6 +67,7 @@ function VoxelCatScene({ model, bounds }: { model: VoxelCatModel; bounds: THREE.
         reduced = media.matches;
         if (reduced) {
           controller.reset();
+          interaction.reset();
           rig.reset();
           invalidate();
         }
@@ -76,6 +80,23 @@ function VoxelCatScene({ model, bounds }: { model: VoxelCatModel; bounds: THREE.
         if (running) invalidate();
       }
     };
+    // The hero is `pointer-events-none` so it never steals a click from the page, which
+    // also means the canvas itself sees no pointer events: the window is the only source.
+    const track = (event: PointerEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      interaction.setPointer(
+        ((event.clientX - rect.left) / rect.width) * 2 - 1,
+        -((event.clientY - rect.top) / rect.height) * 2 + 1,
+        rect.width,
+        rect.height,
+      );
+    };
+    const release = (event: PointerEvent) => {
+      // A finger that has lifted is nowhere; a mouse that has clicked is still on screen.
+      if (event.pointerType !== 'mouse') interaction.clearPointer();
+    };
+    const forget = () => interaction.clearPointer();
     const observer = new IntersectionObserver(([entry]) => {
       visible = entry.isIntersecting && entry.intersectionRatio > 0;
       sync();
@@ -83,6 +104,12 @@ function VoxelCatScene({ model, bounds }: { model: VoxelCatModel; bounds: THREE.
     observer.observe(canvas);
     document.addEventListener('visibilitychange', sync);
     media.addEventListener('change', sync);
+    window.addEventListener('pointermove', track, { passive: true });
+    window.addEventListener('pointerdown', track, { passive: true });
+    window.addEventListener('pointerup', release, { passive: true });
+    window.addEventListener('pointercancel', forget, { passive: true });
+    document.addEventListener('pointerleave', forget);
+    window.addEventListener('blur', forget);
     rig.reset();
     invalidate();
 
@@ -90,19 +117,26 @@ function VoxelCatScene({ model, bounds }: { model: VoxelCatModel; bounds: THREE.
       observer.disconnect();
       document.removeEventListener('visibilitychange', sync);
       media.removeEventListener('change', sync);
+      window.removeEventListener('pointermove', track);
+      window.removeEventListener('pointerdown', track);
+      window.removeEventListener('pointerup', release);
+      window.removeEventListener('pointercancel', forget);
+      document.removeEventListener('pointerleave', forget);
+      window.removeEventListener('blur', forget);
       state.running = false;
       rig.reset();
       animation.current = null;
     };
   }, [canvas, invalidate, model]);
 
-  useFrame((_, delta) => {
+  useFrame(({ camera }, delta) => {
     const state = animation.current;
     if (!state?.running) return;
     // The first delta can include time off-screen or in a hidden tab. Never catch up.
     const elapsed = state.firstFrame ? 0 : Math.min(delta, CAT_IDLE.maxDelta);
     state.firstFrame = false;
-    state.rig.applyPose(state.controller.update(elapsed));
+    // The cursor response is a second pose layered over the idle one; the rig merges them.
+    state.rig.applyPose(state.controller.update(elapsed), state.interaction.update(elapsed, camera));
     invalidate();
   });
 

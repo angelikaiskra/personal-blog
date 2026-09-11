@@ -18,6 +18,7 @@ const ORANGE = 'orange';
 const WHITE = 'white';
 const ONYX = 'onyx';
 const ROSE = 'rose';
+const STRIPE = 'stripe';
 
 /**
  * Tabby stripe colour, de-lit from the reference the same way the palette is: on the crown
@@ -26,7 +27,7 @@ const ROSE = 'rose';
  */
 const STRIPE_COLOR = '#dd6d20';
 
-type PaletteKey = typeof ORANGE | typeof WHITE | typeof ONYX | typeof ROSE;
+type PaletteKey = typeof ORANGE | typeof WHITE | typeof ONYX | typeof ROSE | typeof STRIPE;
 
 /** A part positioned by its centre, in world blocks. */
 type BoxPart = {
@@ -202,25 +203,45 @@ const LEG_BOXES_R: BoxPart[] = [
   { id: 'front-paw-r', material: WHITE, size: [2.4, 1.5, 3.0], center: [-2.3, 0.75, 4.8] },
 ];
 
-const TAIL_BOXES: BoxPart[][] = [
-  [{ id: 'tail-base', material: ORANGE, size: [1.7, 1.7, 1.7], center: [0, 0.85, -3.225] }],
-  [{ id: 'tail-mid', material: ORANGE, size: [1.7, 1.7, 2.95], center: [0, 0.85, -5.5] }],
-  [{ id: 'tail-mid-2', material: ORANGE, size: [1.7, 1.7, 3.05], center: [0, 0.85, -8.45] }],
-  [{ id: 'tail-tip', material: WHITE, size: [1.7, 1.7, 2.0], center: [0, 0.85, -10.925] }],
+const TAIL_BOXES: BoxPart[] = [
+  { id: 'tail-base', material: ORANGE, size: [1.7, 1.7, 1.7], center: [0, 0.85, -3.225] },
+  { id: 'tail-mid', material: ORANGE, size: [1.7, 1.7, 2.95], center: [0, 0.85, -5.5] },
+  { id: 'tail-mid-2', material: ORANGE, size: [1.7, 1.7, 3.05], center: [0, 0.85, -8.45] },
+  { id: 'tail-tip', material: WHITE, size: [1.7, 1.7, 2.0], center: [0, 0.85, -10.925] },
 ];
 
 /**
- * Stripes are painted, not modelled: a zone is an axis-aligned box in the same world blocks
- * as the part tables above, and any surface of the part that falls inside it comes out dark.
- * The test runs in the fragment shader against the untransformed vertex position, which buys
- * three things a stripe made of extra blocks would not: no new geometry, edges that stay
- * perfectly voxel-crisp (a texture would soften them, and box UVs would repeat the stripe on
- * all six faces), and stripes that ride along with whichever joint the part hangs from.
+ * World z where each link's dark band ends; null for the white tip. The tail alternates dark
+ * and light in roughly its own thickness, the proximal half of every link being dark, so a
+ * striped link is built as two mitred boxes meeting on this plane rather than one box wearing
+ * a plate: the links are re-cut every frame to keep their joints closed, and a rigid plate
+ * could not follow a cut that moves.
+ */
+const TAIL_BANDS: readonly (number | null)[] = [-3.225, -5.5, -8.45, null];
+
+/**
+ * Stripes are modelled, not painted: a zone is an axis-aligned box in the same world blocks as
+ * the part tables above, and at build time it is clipped to the part it marks and laid on that
+ * part as a thin plate in the stripe colour. Where the zone set a bound the plate keeps it
+ * exactly — those are the measurements taken off the reference; where the part did the
+ * clipping the plate is pushed STRIPE_PROUD outwards, so it stands on the surface rather than
+ * fighting it for depth, and its skirt covers the chamfered rim instead of leaving a hairline
+ * of coat colour along the edge.
+ *
+ * Geometry rather than a shader buys three things: the boundary is a real edge, so
+ * multisampling antialiases it and it stops crawling as the cat moves; every part shares one
+ * material instead of each stripe pattern baking its own program; and the marking rides
+ * whichever joint the part hangs from without reading the vertex buffers the tail rig rewrites
+ * each frame.
  */
 type StripeZone = { min: [number, number, number]; max: [number, number, number] };
 
 /** Wider than any part, so a zone can be left open on an axis and clip to the block itself. */
 const OPEN = 99;
+/** Stand-off of a plate from the surface it marks: clear of the chamfer, under a pixel on screen. */
+const STRIPE_PROUD = 0.04;
+/** Authored insets are never finer than 0.05, so this only absorbs the arithmetic on a shared edge. */
+const STRIPE_EPSILON = 1e-6;
 /** A stripe wrapping the whole part between two heights. */
 const yBand = (from: number, to: number): StripeZone => ({
   min: [-OPEN, from, -OPEN],
@@ -286,13 +307,9 @@ const STRIPES: Record<string, StripeZone[]> = {
     cornerBand(2.2, 3.05, [-OPEN, -2.7], [4.35, OPEN]),
     cornerBand(3.65, 4.5, [-OPEN, -2.7], [4.35, OPEN]),
   ],
-  // The tail alternates dark and light in roughly its own thickness: the proximal half of
-  // every link is dark, and the tailbone carries the first band so the run starts at the rump
-  // instead of a link's length behind it.
+  // The tailbone carries the first band of the tail's alternating run, so it starts at the rump
+  // instead of a link's length behind it. The links themselves are split, not plated: TAIL_BANDS.
   tailbone: [zBand(-2.55, -1.9)],
-  'tail-base': [zBand(-3.225, -2.35)],
-  'tail-mid': [zBand(-5.5, -4)],
-  'tail-mid-2': [zBand(-8.45, -6.9)],
 };
 
 export type VoxelCatOptions = {
@@ -353,46 +370,8 @@ function makeMaterials(): Record<PaletteKey, THREE.MeshStandardMaterial> {
     [WHITE]: make('#ffffff', 0.72, 'voxel-cat-white'),
     [ONYX]: make('#0d0d0d', 0.55, 'voxel-cat-onyx'),
     [ROSE]: make('#f69caa', 0.72, 'voxel-cat-rose'),
+    [STRIPE]: make(STRIPE_COLOR, 0.7, 'voxel-cat-stripe'),
   };
-}
-
-/**
- * GLSL for "is this fragment inside any stripe", with the zones rebased from world blocks
- * onto the geometry's own origin and baked in as constants — they never change at runtime.
- */
-function stripeTest(zones: StripeZone[], origin: readonly [number, number, number]): string {
-  const literal = (bound: [number, number, number]) =>
-    // toFixed keeps every number a float literal; GLSL ES 1.00 will not widen an int.
-    `vec3(${bound.map((v, axis) => (v - origin[axis]).toFixed(4)).join(', ')})`;
-  return zones
-    .map(
-      ({ min, max }) => `(all(greaterThan(vVoxelPos, ${literal(min)})) && all(lessThan(vVoxelPos, ${literal(max)})))`,
-    )
-    .join(' || ');
-}
-
-function makeStripedMaterial(base: THREE.MeshStandardMaterial, test: string): THREE.MeshStandardMaterial {
-  const material = base.clone();
-  material.name = `${base.name}-striped`;
-  const color = new THREE.Color(STRIPE_COLOR);
-  material.onBeforeCompile = (shader) => {
-    shader.uniforms.uStripeColor = { value: color };
-    // `position` is the raw vertex attribute, so the varying carries geometry-local blocks —
-    // the joint's own rotation never enters into it.
-    shader.vertexShader = `varying vec3 vVoxelPos;\n${shader.vertexShader}`.replace(
-      '#include <begin_vertex>',
-      '#include <begin_vertex>\n\tvVoxelPos = position;',
-    );
-    // After <color_fragment> diffuseColor is the final albedo and nothing has been lit yet,
-    // so swapping it here leaves shading, shadows and tone mapping to do their usual work.
-    shader.fragmentShader = `uniform vec3 uStripeColor;\nvarying vec3 vVoxelPos;\n${shader.fragmentShader}`.replace(
-      '#include <color_fragment>',
-      `#include <color_fragment>\n\tif (${test}) diffuseColor.rgb = uStripeColor;`,
-    );
-  };
-  // The zones are baked into the source, so two stripe patterns must not share a program.
-  material.customProgramCacheKey = () => test;
-  return material;
 }
 
 function boxGeometry(size: [number, number, number], chamfer: number): THREE.BufferGeometry {
@@ -402,23 +381,62 @@ function boxGeometry(size: [number, number, number], chamfer: number): THREE.Buf
   return new RoundedBoxGeometry(w, h, d, 1, radius);
 }
 
-/** Miter the resting tail bends so adjacent top faces meet without gaps or overlaps. */
-function tailGeometry(part: BoxPart, link: number): THREE.BufferGeometry {
+/** One piece of the tail, placed between two world depths and mitred on at most one face. */
+type TailSegment = {
+  id: string;
+  material: PaletteKey;
+  /** World z of the face nearer the body, and of the face further from it. */
+  start: number;
+  end: number;
+  startSlope: number;
+  endSlope: number;
+  /** The face an animated joint sweeps: the root never moves and the tip has no joint. */
+  mitre: 'start' | 'end' | 'none';
+};
+
+/**
+ * The pieces of one tail link. A striped link is cut in two at the far edge of its dark band,
+ * which leaves each piece exactly one moving end and puts the marking's boundary on a flat
+ * internal plane the two halves share — coincident, opposite-facing, and so never in a depth
+ * fight with each other.
+ */
+function tailSegments(link: number): TailSegment[] {
+  const part = TAIL_BOXES[link];
   const anchors = [TAIL_JOINT_1, TAIL_JOINT_2, TAIL_JOINT_3, TAIL_JOINT_4];
   const next = anchors[link + 1];
   const start = link === 0 ? part.center[2] + part.size[2] / 2 : anchors[link][2];
   const end = next ? next[2] : part.center[2] - part.size[2] / 2;
   const startSlope = link === 0 ? 0 : Math.tan(TAIL_YAW[link] / 2);
   const endSlope = next ? -Math.tan(TAIL_YAW[link + 1] / 2) : 0;
+  // tail1 carries the first rest bend but is never animated, so link 0's start is fixed.
+  const startMitre = link === 0 ? 'none' : 'start';
+  const band = TAIL_BANDS[link];
+  if (band === null) {
+    return [{ id: part.id, material: part.material, start, end, startSlope, endSlope, mitre: startMitre }];
+  }
+  return [
+    { id: `${part.id}-band`, material: STRIPE, start, end: band, startSlope, endSlope: 0, mitre: startMitre },
+    { id: part.id, material: part.material, start: band, end, startSlope: 0, endSlope, mitre: 'end' },
+  ];
+}
+
+/** Miter the resting tail bends so adjacent top faces meet without gaps or overlaps. */
+function tailGeometry(segment: TailSegment, size: readonly [number, number, number], centerZ: number) {
   // Separate face vertices retain flat normals. No bevel at the internal seams: rounding
   // both ends would reintroduce a groove, and overlapping top faces would z-fight.
-  const geometry = new THREE.BoxGeometry(...part.size);
+  const geometry = new THREE.BoxGeometry(size[0], size[1], segment.start - segment.end);
   const positions = geometry.getAttribute('position');
+  // Lever arm of the mitred face and zero everywhere else: all the rig needs to sweep that one
+  // face with its joint, leaving the band's internal plane exactly where it was built.
+  const mitre = new Float32Array(positions.count);
   for (let i = 0; i < positions.count; i++) {
     const isStart = positions.getZ(i) > 0;
-    const z = (isStart ? start : end) + positions.getX(i) * (isStart ? startSlope : endSlope);
-    positions.setZ(i, z - part.center[2]);
+    const x = positions.getX(i);
+    const z = (isStart ? segment.start : segment.end) + x * (isStart ? segment.startSlope : segment.endSlope);
+    positions.setZ(i, z - centerZ);
+    if (segment.mitre === (isStart ? 'start' : 'end')) mitre[i] = x;
   }
+  geometry.userData.tailMitre = mitre;
   geometry.computeVertexNormals();
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
@@ -465,7 +483,6 @@ export function createVoxelCatModel(options: VoxelCatOptions = {}): VoxelCatMode
   const materials = makeMaterials();
   const parts: Record<string, THREE.Mesh> = {};
   const geometries: THREE.BufferGeometry[] = [];
-  const stripedMaterials: THREE.MeshStandardMaterial[] = [];
 
   /** `at` and `parentAt` are both world-space, so the table above stays readable. */
   const joint = (
@@ -490,17 +507,10 @@ export function createVoxelCatModel(options: VoxelCatOptions = {}): VoxelCatMode
     center: readonly [number, number, number] = [0, 0, 0],
   ) => {
     geometries.push(geometry);
-    // `center` is the world anchor the geometry was built around, so it is also what turns
-    // the world-space stripe table into this geometry's own coordinates.
-    const zones = STRIPES[id];
-    let paint = materials[material];
-    if (zones) {
-      paint = makeStripedMaterial(paint, stripeTest(zones, center));
-      stripedMaterials.push(paint);
-    }
-    const mesh = new THREE.Mesh(geometry, paint);
+    const mesh = new THREE.Mesh(geometry, materials[material]);
     mesh.name = id;
-    // Rebase the world-space table entry onto the pivot this part hangs from.
+    // `center` is the world anchor the geometry was built around; rebase it onto the pivot
+    // this part hangs from.
     mesh.position.set(center[0] - origin[0], center[1] - origin[1], center[2] - origin[2]);
     mesh.castShadow = castShadow;
     mesh.receiveShadow = receiveShadow;
@@ -510,12 +520,43 @@ export function createVoxelCatModel(options: VoxelCatOptions = {}): VoxelCatMode
     return mesh;
   };
 
-  const addBox = (part: BoxPart, parent: THREE.Object3D, origin: readonly [number, number, number]) =>
-    addMesh(boxGeometry(part.size, chamfer), part.id, part.material, parent, origin, part.center);
+  /** One stripe: its zone clipped to the part it marks, and lifted off the faces that clipped it. */
+  const addStripe = (
+    part: BoxPart,
+    zone: StripeZone,
+    index: number,
+    parent: THREE.Object3D,
+    origin: readonly [number, number, number],
+  ) => {
+    const size: [number, number, number] = [0, 0, 0];
+    const center: [number, number, number] = [0, 0, 0];
+    for (let axis = 0; axis < 3; axis++) {
+      const low = part.center[axis] - part.size[axis] / 2;
+      const high = part.center[axis] + part.size[axis] / 2;
+      const min = zone.min[axis] > low + STRIPE_EPSILON ? zone.min[axis] : low - STRIPE_PROUD;
+      const max = zone.max[axis] < high - STRIPE_EPSILON ? zone.max[axis] : high + STRIPE_PROUD;
+      if (max <= min) return;
+      size[axis] = max - min;
+      center[axis] = (min + max) / 2;
+    }
+    const mesh = addMesh(boxGeometry(size, chamfer), `${part.id}-stripe-${index}`, STRIPE, parent, origin, center);
+    // The block underneath already casts this silhouette; a second caster only risks acne.
+    mesh.castShadow = false;
+  };
+
+  const addBox = (part: BoxPart, parent: THREE.Object3D, origin: readonly [number, number, number]) => {
+    const mesh = addMesh(boxGeometry(part.size, chamfer), part.id, part.material, parent, origin, part.center);
+    const zones = STRIPES[part.id];
+    if (zones) zones.forEach((zone, index) => addStripe(part, zone, index, parent, origin));
+    return mesh;
+  };
 
   const addTail = (link: number, parent: THREE.Object3D, origin: readonly [number, number, number]) => {
-    for (const part of TAIL_BOXES[link])
-      addMesh(tailGeometry(part, link), part.id, part.material, parent, origin, part.center);
+    const { size, center: authored } = TAIL_BOXES[link];
+    for (const segment of tailSegments(link)) {
+      const center: [number, number, number] = [0, authored[1], (segment.start + segment.end) / 2];
+      addMesh(tailGeometry(segment, size, center[2]), segment.id, segment.material, parent, origin, center);
+    }
   };
 
   const addExtrude = (part: ExtrudePart, parent: THREE.Object3D, origin: readonly [number, number, number]) => {
@@ -595,7 +636,6 @@ export function createVoxelCatModel(options: VoxelCatOptions = {}): VoxelCatMode
     dispose: () => {
       for (const geometry of geometries) geometry.dispose();
       for (const material of Object.values(materials)) material.dispose();
-      for (const material of stripedMaterials) material.dispose();
     },
   };
 }

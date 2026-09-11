@@ -1,5 +1,6 @@
 import type * as THREE from 'three';
 import { CAT_IDLE, neutralCatPose, type CatPose } from './cat-animation-controller';
+import type { CatInteractionPose } from './cat-interaction-controller';
 import type { VoxelCatModel } from './create-voxel-cat-model';
 
 /** The only writer of animated transforms; every pose is relative to the authored rest. */
@@ -17,51 +18,58 @@ export function createCatAnimationRig(model: VoxelCatModel) {
   );
   const glints = [parts['eye-cell-upper-lateral'], parts['eye-cell-upper-medial']];
   const glintVisibility = glints.map((glint) => glint.visible);
+  const glintRest = glints.map((glint) => glint.position.clone());
 
-  // Mitered ends must follow the changing joint angle. Adjust the existing 24-vertex
-  // buffers, not topology: the two mating planes remain coincident throughout a sway.
+  // Mitered ends must follow the changing joint angle. Adjust the existing 24-vertex buffers,
+  // not topology: the two mating planes remain coincident throughout a sway. Each piece has a
+  // single mitred face — the striped links are two boxes meeting on a flat internal plane — so
+  // one joint and one slope describe all of it, and `tailMitre` says which vertices it owns.
   const seams = [
-    { mesh: parts['tail-base'], startJoint: undefined, endJoint: joints.tail2 },
-    { mesh: parts['tail-mid'], startJoint: joints.tail2, endJoint: joints.tail3 },
-    { mesh: parts['tail-mid-2'], startJoint: joints.tail3, endJoint: joints.tail4 },
-    { mesh: parts['tail-tip'], startJoint: joints.tail4, endJoint: undefined },
-  ].map(({ mesh, startJoint, endJoint }) => ({
-    mesh,
-    startJoint,
-    endJoint,
-    positions: mesh.geometry.getAttribute('position') as THREE.BufferAttribute,
-    rest: Float32Array.from(mesh.geometry.getAttribute('position').array),
-    startSlope: startJoint ? Math.tan(startJoint.rotation.y / 2) : 0,
-    endSlope: endJoint ? -Math.tan(endJoint.rotation.y / 2) : 0,
-    lastStart: startJoint?.rotation.y ?? 0,
-    lastEnd: endJoint?.rotation.y ?? 0,
-  }));
+    { mesh: parts['tail-base'], joint: joints.tail2, face: 'end' },
+    { mesh: parts['tail-mid-band'], joint: joints.tail2, face: 'start' },
+    { mesh: parts['tail-mid'], joint: joints.tail3, face: 'end' },
+    { mesh: parts['tail-mid-2-band'], joint: joints.tail3, face: 'start' },
+    { mesh: parts['tail-mid-2'], joint: joints.tail4, face: 'end' },
+    { mesh: parts['tail-tip'], joint: joints.tail4, face: 'start' },
+  ].map(({ mesh, joint, face }) => {
+    // A start face leans with half the joint's angle; an end face leans against it.
+    const slope = (angle: number) => (face === 'start' ? 1 : -1) * Math.tan(angle / 2);
+    const positions = mesh.geometry.getAttribute('position') as THREE.BufferAttribute;
+    return {
+      mesh,
+      joint,
+      slope,
+      positions,
+      rest: Float32Array.from(positions.array),
+      /** Per-vertex lever arm of the mitred face, zero on every other vertex. */
+      lever: mesh.geometry.userData.tailMitre as Float32Array,
+      restSlope: slope(joint.rotation.y),
+      last: joint.rotation.y,
+    };
+  });
 
   function fitTailSeams() {
     for (const seam of seams) {
-      const start = seam.startJoint?.rotation.y ?? 0;
-      const end = seam.endJoint?.rotation.y ?? 0;
-      if (start === seam.lastStart && end === seam.lastEnd) continue;
-      const startDelta = Math.tan(start / 2) - seam.startSlope;
-      const endDelta = (seam.endJoint ? -Math.tan(end / 2) : 0) - seam.endSlope;
+      const angle = seam.joint.rotation.y;
+      if (angle === seam.last) continue;
+      const delta = seam.slope(angle) - seam.restSlope;
       for (let index = 0; index < seam.positions.count; index++) {
-        const x = seam.rest[index * 3];
-        const z = seam.rest[index * 3 + 2];
-        seam.positions.setZ(index, z + x * (z > 0 ? startDelta : endDelta));
+        seam.positions.setZ(index, seam.rest[index * 3 + 2] + seam.lever[index] * delta);
       }
       seam.positions.needsUpdate = true;
       seam.mesh.geometry.computeVertexNormals();
       seam.mesh.geometry.computeBoundingBox();
       seam.mesh.geometry.computeBoundingSphere();
-      seam.lastStart = start;
-      seam.lastEnd = end;
+      seam.last = angle;
     }
   }
 
-  function applyPose(pose: CatPose) {
+  /** `interaction` layers the cursor response over the idle pose; omit it for idle alone. */
+  function applyPose(pose: CatPose, interaction?: CatInteractionPose) {
     joints.chest.scale.z = base.chest.scale.z * (1 + CAT_IDLE.breath.depth * pose.breath);
-    joints.head.rotation.y = base.head.rotation.y + pose.headYaw;
-    joints.head.rotation.x = base.head.rotation.x + pose.headPitch;
+    // Idle and cursor offsets add: a watching cat still drifts its head about on its own.
+    joints.head.rotation.y = base.head.rotation.y + pose.headYaw + (interaction?.headYaw ?? 0);
+    joints.head.rotation.x = base.head.rotation.x + pose.headPitch + (interaction?.headPitch ?? 0);
     joints.earL.rotation.z = base.earL.rotation.z + pose.earL;
     joints.earR.rotation.z = base.earR.rotation.z + pose.earR;
     const opening = Math.max(0, Math.min(1, pose.eyeOpen));
@@ -70,6 +78,10 @@ export function createCatAnimationRig(model: VoxelCatModel) {
     joints.eyeR.scale.y = base.eyeR.scale.y * (0.055 + opening * 0.945);
     glints.forEach((glint, index) => {
       glint.visible = glintVisibility[index] && opening > 0.12;
+      // The cell slides inside its own dark plate, which is what makes the eye read as a
+      // pupil rather than a highlight; the plate itself never leaves the authored spot.
+      glint.position.x = glintRest[index].x + (interaction?.glintX ?? 0);
+      glint.position.y = glintRest[index].y + (interaction?.glintY ?? 0);
     });
     joints.tail2.rotation.y = base.tail2.rotation.y + pose.tail2;
     joints.tail3.rotation.y = base.tail3.rotation.y + pose.tail3;
