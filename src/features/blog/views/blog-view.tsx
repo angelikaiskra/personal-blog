@@ -79,7 +79,7 @@ export function BlogView({ selectedTag }: BlogViewProps) {
                   <span>{post.readingTime}</span>
                 </div>
 
-                <Text as="p" variant="body" className="mt-4">
+                <Text as={Link} href={`/blog/${post._meta.path}`} variant="body" className="mt-4 block">
                   {post.excerpt}
                 </Text>
 

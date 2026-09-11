@@ -310,6 +310,10 @@ export type VoxelCatOptions = {
 export type VoxelCatJoints = {
   /** Whole-body bob. */
   body: THREE.Group;
+  /** Upper chest only; legs and rump stay outside the breathing pivot. */
+  chest: THREE.Group;
+  eyeL: THREE.Group;
+  eyeR: THREE.Group;
   /** Head yaw/pitch/tilt; origin on the neck contact plane. */
   head: THREE.Group;
   earL: THREE.Group;
@@ -531,12 +535,26 @@ export function createVoxelCatModel(options: VoxelCatOptions = {}): VoxelCatMode
   // The head and tail retain their own proportions outside this scaled group.
   const torso = joint('voxel-cat-torso', BODY_JOINT, body, BODY_JOINT);
   torso.scale.set(0.9, 1, 0.95);
-  addExtrude(BIB, torso, BODY_JOINT);
-  for (const part of BODY_BOXES) addBox(part, part.id === 'tailbone' ? body : torso, BODY_JOINT);
+  const chestAt: [number, number, number] = [0, 6.1, 1.8];
+  const chest = joint('voxel-cat-chest', chestAt, torso, BODY_JOINT);
+  addExtrude(BIB, chest, chestAt);
+  for (const part of BODY_BOXES) {
+    const breathes = ['body-neck', 'body-chest-l', 'body-chest-r'].includes(part.id);
+    addBox(part, breathes ? chest : part.id === 'tailbone' ? body : torso, breathes ? chestAt : BODY_JOINT);
+  }
 
   const head = joint('voxel-cat-head', HEAD_JOINT, body, BODY_JOINT);
   head.position.y += HEAD_LIFT;
-  for (const part of HEAD_BOXES) addBox(part, head, HEAD_JOINT);
+  head.rotation.order = 'YXZ';
+  const eyeAtL: [number, number, number] = [1.57, 10.355, 6.03];
+  const eyeAtR: [number, number, number] = [-1.57, 10.355, 6.03];
+  const eyeL = joint('voxel-cat-eye-l', eyeAtL, head, HEAD_JOINT);
+  const eyeR = joint('voxel-cat-eye-r', eyeAtR, head, HEAD_JOINT);
+  for (const part of HEAD_BOXES) {
+    if (part.id === 'eye-l' || part.id === 'eye-cell-upper-lateral') addBox(part, eyeL, eyeAtL);
+    else if (part.id === 'eye-r' || part.id === 'eye-cell-upper-medial') addBox(part, eyeR, eyeAtR);
+    else addBox(part, head, HEAD_JOINT);
+  }
 
   const earL = joint('voxel-cat-ear-l', EAR_JOINT_L, head, HEAD_JOINT);
   addExtrude(EAR_L, earL, EAR_JOINT_L);
@@ -571,7 +589,7 @@ export function createVoxelCatModel(options: VoxelCatOptions = {}): VoxelCatMode
 
   return {
     group,
-    joints: { body, head, earL, earR, frontLegL, frontLegR, tail1, tail2, tail3, tail4 },
+    joints: { body, chest, eyeL, eyeR, head, earL, earR, frontLegL, frontLegR, tail1, tail2, tail3, tail4 },
     parts,
     materials,
     dispose: () => {

@@ -70,7 +70,7 @@ export function HomeView() {
                     <span>{post.readingTime}</span>
                   </div>
 
-                  <Text as="p" variant="body" className="mt-4 max-w-170">
+                  <Text as={Link} href={`/blog/${post._meta.path}`} variant="body" className="mt-4 block max-w-170">
                     {post.excerpt}
                   </Text>
 
