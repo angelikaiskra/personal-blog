@@ -2,6 +2,7 @@
 
 import { ContactShadows } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { useTheme } from 'next-themes';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { CAT_IDLE, createCatAnimationController } from './cat-animation-controller';
@@ -35,6 +36,7 @@ function VoxelCatScene({ model, bounds }: { model: VoxelCatModel; bounds: THREE.
   const invalidate = useThree((state) => state.invalidate);
   const canvas = useThree((state) => state.gl.domElement);
   const viewport = useThree((state) => state.viewport);
+  const { resolvedTheme } = useTheme();
 
   // Bounds contain actual vertices in the camera's orientation, excluding the empty
   // corners of a world-axis bounding box. This keeps the face readable at narrow widths.
@@ -51,6 +53,14 @@ function VoxelCatScene({ model, bounds }: { model: VoxelCatModel; bounds: THREE.
   const offsetZ = -centre.z * fit;
   // The model's own origin is the ground the paws stand on, so this is where the floor lands.
   const floorY = -centre.y * fit;
+
+  useEffect(() => {
+    // next-themes reports nothing until its own effect has run, but its blocking script has
+    // already stamped the class, so read that rather than paint a tabby for one frame.
+    const dark = resolvedTheme ? resolvedTheme === 'dark' : document.documentElement.classList.contains('dark');
+    model.setTheme(dark ? 'dark' : 'light');
+    invalidate();
+  }, [invalidate, model, resolvedTheme]);
 
   useEffect(() => {
     const controller = createCatAnimationController();
@@ -189,7 +199,8 @@ export function VoxelCatHero() {
 
   return (
     <div className="pointer-events-none relative isolate h-72 w-full min-w-0 md:h-90" aria-hidden="true">
-      <div className="bg-accent/10 absolute inset-x-8 top-4 bottom-3 -z-10 rounded-[45%] sm:inset-x-16 md:inset-x-3" />
+      {/* The halo follows the coat: warm behind the tabby, cool behind the colourpoint. */}
+      <div className="bg-cat-halo/10 dark:bg-cat-halo/20 absolute inset-x-8 top-4 bottom-3 -z-10 rounded-[45%] sm:inset-x-16 md:inset-x-3" />
       <Canvas
         orthographic
         shadows

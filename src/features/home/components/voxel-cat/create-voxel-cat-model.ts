@@ -14,20 +14,93 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
  * origin sits on the joint, so rotating a joint does the right thing with no extra offsets.
  */
 
-const ORANGE = 'orange';
-const WHITE = 'white';
-const ONYX = 'onyx';
-const ROSE = 'rose';
-const STRIPE = 'stripe';
+/**
+ * Parts are painted by role, not by colour, so the cat can wear a different coat in each
+ * theme without a single block moving. `ear` and `tail` are separate from `coat` because a
+ * colourpoint darkens them while a tabby keeps them coat-coloured, and `point` is the muzzle,
+ * paws and tail tip — the extremities a colourpoint darkens and a tabby wears white on.
+ */
+const COAT = 'coat';
+const COAT_SHADE = 'coat-shade';
+const EAR = 'ear';
+const TAIL = 'tail';
+const TAIL_SHADE = 'tail-shade';
+const POINT = 'point';
+const BELLY = 'belly';
+const WHISKER = 'whisker';
+const SEAL = 'seal';
+const EYE = 'eye';
+const SKIN = 'skin';
+const EAR_INNER = 'ear-inner';
+
+type PaletteKey =
+  | typeof COAT
+  | typeof COAT_SHADE
+  | typeof EAR
+  | typeof TAIL
+  | typeof TAIL_SHADE
+  | typeof POINT
+  | typeof BELLY
+  | typeof WHISKER
+  | typeof SEAL
+  | typeof EYE
+  | typeof SKIN
+  | typeof EAR_INNER;
+
+export type VoxelCatPalette = Record<PaletteKey, string>;
 
 /**
- * Tabby stripe colour, de-lit from the reference the same way the palette is: on the crown
- * the plain coat photographs as rgb(240,141,25) and the stripe as rgb(208,111,26), and that
- * ratio applied to the orange albedo lands here — a burnt orange, not a true brown.
+ * A coat per theme.
+ *
+ * The tabby is the measured one, solved from the reference renders: the plain coat
+ * photographs as rgb(240,141,25) and its marking as rgb(208,111,26), and that ratio applied
+ * to the orange albedo lands on a burnt orange rather than a true brown.
+ *
+ * The colourpoint is its inverse, and is authored rather than measured. Its points sit well
+ * above a real seal's near-black, which would sink into the dark theme's page and cost the
+ * cat its silhouette; the contrast that sells the coat is the one against the cream, not the
+ * one against the background. The shade on the body is pulled close to the coat on purpose —
+ * a colourpoint carries no tabby striping, so the same markings read as soft shading.
  */
-const STRIPE_COLOR = '#dd6d20';
+export const VOXEL_CAT_PALETTES = {
+  light: {
+    [COAT]: '#ed8c20',
+    [COAT_SHADE]: '#dd6d20',
+    [EAR]: '#ed8c20',
+    [TAIL]: '#ed8c20',
+    [TAIL_SHADE]: '#dd6d20',
+    [POINT]: '#ffffff',
+    [BELLY]: '#ffffff',
+    [WHISKER]: '#ffffff',
+    // Unused while the gradient is off, which it always is in this coat.
+    [SEAL]: '#dd6d20',
+    [EYE]: '#0d0d0d',
+    [SKIN]: '#f69caa',
+    [EAR_INNER]: '#f69caa',
+  },
+  // Every piece of fur starts from the same cream here — coat, ears, tail, feet and muzzle
+  // alike — and the point gradient is what darkens the extremities. That is how the coat
+  // actually works on the reference, and it is why none of these roles carry a brown: putting
+  // one in would reintroduce exactly the edge the gradient exists to avoid.
+  dark: {
+    [COAT]: '#ddd0b8',
+    [COAT_SHADE]: '#ddd0b8',
+    [EAR]: '#3f2c22',
+    [TAIL]: '#ddd0b8',
+    [TAIL_SHADE]: '#ddd0b8',
+    [POINT]: '#ddd0b8',
+    [BELLY]: '#efe7d6',
+    [WHISKER]: '#f5eee0',
+    [SEAL]: '#3f2c22',
+    [EYE]: '#7fb6de',
+    [SKIN]: '#6f5a50',
+    // Barely off the shell around it. On the reference the inner ear is dark too; lift it any
+    // further and the ear reads as a notch cut out of the head rather than as an ear.
+    [EAR_INNER]: '#513c34',
+  },
+} satisfies Record<string, VoxelCatPalette>;
 
-type PaletteKey = typeof ORANGE | typeof WHITE | typeof ONYX | typeof ROSE | typeof STRIPE;
+export type VoxelCatTheme = keyof typeof VOXEL_CAT_PALETTES;
 
 /** A part positioned by its centre, in world blocks. */
 type BoxPart = {
@@ -108,7 +181,7 @@ const mirrorX = (outline: [number, number][]): [number, number][] =>
 
 const BIB: ExtrudePart = {
   id: 'chest-bib',
-  material: WHITE,
+  material: BELLY,
   outline: BIB_OUTLINE,
   axis: 'z',
   from: 4.4,
@@ -116,7 +189,7 @@ const BIB: ExtrudePart = {
 };
 const EAR_L: ExtrudePart = {
   id: 'ear-l',
-  material: ORANGE,
+  material: EAR,
   outline: EAR_OUTLINE,
   hole: EAR_WINDOW,
   axis: 'z',
@@ -125,7 +198,7 @@ const EAR_L: ExtrudePart = {
 };
 const EAR_R: ExtrudePart = {
   id: 'ear-r',
-  material: ORANGE,
+  material: EAR,
   outline: mirrorX(EAR_OUTLINE),
   hole: mirrorX(EAR_WINDOW),
   axis: 'z',
@@ -134,7 +207,7 @@ const EAR_R: ExtrudePart = {
 };
 const EAR_INNER_L: ExtrudePart = {
   id: 'ear-inner-l',
-  material: ROSE,
+  material: EAR_INNER,
   outline: EAR_WINDOW,
   axis: 'z',
   from: 2.96,
@@ -142,7 +215,7 @@ const EAR_INNER_L: ExtrudePart = {
 };
 const EAR_INNER_R: ExtrudePart = {
   id: 'ear-inner-r',
-  material: ROSE,
+  material: EAR_INNER,
   outline: mirrorX(EAR_WINDOW),
   axis: 'z',
   from: 2.96,
@@ -156,58 +229,58 @@ const BODY_BOXES: BoxPart[] = [
   // the ground right up to the bib — is the belly pocket, so the white bib and the white
   // belly meet with no orange showing between them. Every shared face is offset by ~0.1 so
   // blocks interpenetrate rather than sit coplanar (coplanar orange-on-orange z-fights).
-  { id: 'body-rear', material: ORANGE, size: [6.6, 6.3, 4.0], center: [0, 3.15, 0.4] },
-  { id: 'body-neck', material: ORANGE, size: [4.5, 2.35, 3.45], center: [0, 7.25, 2.85] },
-  { id: 'body-chest-l', material: ORANGE, size: [2.05, 5.0, 3.3], center: [2.275, 5.1, 3.45] },
-  { id: 'body-chest-r', material: ORANGE, size: [2.05, 5.0, 3.3], center: [-2.275, 5.1, 3.45] },
+  { id: 'body-rear', material: COAT, size: [6.6, 6.3, 4.0], center: [0, 3.15, 0.4] },
+  { id: 'body-neck', material: COAT, size: [4.5, 2.35, 3.45], center: [0, 7.25, 2.85] },
+  { id: 'body-chest-l', material: COAT, size: [2.05, 5.0, 3.3], center: [2.275, 5.1, 3.45] },
+  { id: 'body-chest-r', material: COAT, size: [2.05, 5.0, 3.3], center: [-2.275, 5.1, 3.45] },
   // White belly fur: fills the channel from the ground up to overlap the bib, but set well
   // back — its face sits 0.4 behind the chest halves and 0.7 behind the front of the legs,
   // so the whole underside between the legs is one continuous white front, recessed into a
   // deep pocket the orange legs and chest frame.
-  { id: 'belly-panel', material: WHITE, size: [3.0, 4.8, 2.4], center: [0, 2.4, 2.8] },
+  { id: 'belly-panel', material: BELLY, size: [3.0, 4.8, 2.4], center: [0, 2.4, 2.8] },
   // The root block overlaps the rump and the first tail link.
-  { id: 'tailbone', material: ORANGE, size: [1.5, 1.7, 1.5], center: [0, 1.05, -1.8] },
+  { id: 'tailbone', material: COAT, size: [1.5, 1.7, 1.5], center: [0, 1.05, -1.8] },
   // Folded haunches embed into the rump and reach the floor along their full depth.
   // White toes project forward; there is no unsupported orange shelf behind the paws.
-  { id: 'hind-leg-l', material: ORANGE, size: [2.0, 4.6, 4.5], center: [3.25, 2.3, 0.9] },
-  { id: 'hind-leg-r', material: ORANGE, size: [2.0, 4.6, 4.5], center: [-3.25, 2.3, 0.9] },
-  { id: 'hind-paw-l', material: WHITE, size: [1.95, 1.5, 2.9], center: [3.5, 0.75, 2.65] },
-  { id: 'hind-paw-r', material: WHITE, size: [1.95, 1.5, 2.9], center: [-3.5, 0.75, 2.65] },
+  { id: 'hind-leg-l', material: COAT, size: [2.0, 4.6, 4.5], center: [3.25, 2.3, 0.9] },
+  { id: 'hind-leg-r', material: COAT, size: [2.0, 4.6, 4.5], center: [-3.25, 2.3, 0.9] },
+  { id: 'hind-paw-l', material: POINT, size: [1.95, 1.5, 2.9], center: [3.5, 0.75, 2.65] },
+  { id: 'hind-paw-r', material: POINT, size: [1.95, 1.5, 2.9], center: [-3.5, 0.75, 2.65] },
 ];
 
 const HEAD_BOXES: BoxPart[] = [
-  { id: 'head', material: ORANGE, size: [7.0, 5.14, 5.0], center: [0, 9.6, 3.48] },
-  { id: 'muzzle', material: WHITE, size: [3.05, 2.0, 0.95], center: [0, 8.45, 6.35] },
-  { id: 'nose', material: ROSE, size: [1.1, 0.95, 0.06], center: [0, 8.96, 6.85] },
-  { id: 'eye-l', material: ONYX, size: [1.3, 1.29, 0.1], center: [1.57, 10.355, 6.03] },
-  { id: 'eye-r', material: ONYX, size: [1.3, 1.29, 0.1], center: [-1.57, 10.355, 6.03] },
+  { id: 'head', material: COAT, size: [7.0, 5.14, 5.0], center: [0, 9.6, 3.48] },
+  { id: 'muzzle', material: POINT, size: [3.05, 2.0, 0.95], center: [0, 8.45, 6.35] },
+  { id: 'nose', material: SKIN, size: [1.1, 0.95, 0.06], center: [0, 8.96, 6.85] },
+  { id: 'eye-l', material: EYE, size: [1.3, 1.29, 0.1], center: [1.57, 10.355, 6.03] },
+  { id: 'eye-r', material: EYE, size: [1.3, 1.29, 0.1], center: [-1.57, 10.355, 6.03] },
   // The white glint sits in a DIFFERENT cell of each eye's 2x2 grid — lateral on the cat's
   // left, medial on its right, so both land on the same world side. Measured in the front
   // reference, verified in the three-quarter one: it is a stylisation, not a mirroring bug.
-  { id: 'eye-cell-upper-lateral', material: WHITE, size: [0.65, 0.65, 0.06], center: [1.895, 10.675, 6.11] },
-  { id: 'eye-cell-upper-medial', material: WHITE, size: [0.65, 0.65, 0.06], center: [-1.245, 10.675, 6.11] },
-  { id: 'whisker-l1', material: WHITE, size: [2.4, 0.28, 0.28], center: [3.1, 8.88, 6.04] },
-  { id: 'whisker-l2', material: WHITE, size: [2.4, 0.28, 0.28], center: [3.1, 7.9, 6.04] },
-  { id: 'whisker-r1', material: WHITE, size: [2.4, 0.28, 0.28], center: [-3.1, 8.88, 6.04] },
-  { id: 'whisker-r2', material: WHITE, size: [2.4, 0.28, 0.28], center: [-3.1, 7.9, 6.04] },
+  { id: 'eye-cell-upper-lateral', material: WHISKER, size: [0.65, 0.65, 0.06], center: [1.895, 10.675, 6.11] },
+  { id: 'eye-cell-upper-medial', material: WHISKER, size: [0.65, 0.65, 0.06], center: [-1.245, 10.675, 6.11] },
+  { id: 'whisker-l1', material: WHISKER, size: [2.4, 0.28, 0.28], center: [3.1, 8.88, 6.04] },
+  { id: 'whisker-l2', material: WHISKER, size: [2.4, 0.28, 0.28], center: [3.1, 7.9, 6.04] },
+  { id: 'whisker-r1', material: WHISKER, size: [2.4, 0.28, 0.28], center: [-3.1, 8.88, 6.04] },
+  { id: 'whisker-r2', material: WHISKER, size: [2.4, 0.28, 0.28], center: [-3.1, 7.9, 6.04] },
 ];
 
 // Continuous shoulder-to-sock columns hide the chest join. Their front/outer faces sit
 // slightly ahead of the chest to avoid coplanar stripes, and each sock overlaps its leg.
 const LEG_BOXES_L: BoxPart[] = [
-  { id: 'front-leg-l', material: ORANGE, size: [2.15, 6.15, 2.65], center: [2.25, 4.325, 3.8] },
-  { id: 'front-paw-l', material: WHITE, size: [2.4, 1.5, 3.0], center: [2.3, 0.75, 4.8] },
+  { id: 'front-leg-l', material: COAT, size: [2.15, 6.15, 2.65], center: [2.25, 4.325, 3.8] },
+  { id: 'front-paw-l', material: POINT, size: [2.4, 1.5, 3.0], center: [2.3, 0.75, 4.8] },
 ];
 const LEG_BOXES_R: BoxPart[] = [
-  { id: 'front-leg-r', material: ORANGE, size: [2.15, 6.15, 2.65], center: [-2.25, 4.325, 3.8] },
-  { id: 'front-paw-r', material: WHITE, size: [2.4, 1.5, 3.0], center: [-2.3, 0.75, 4.8] },
+  { id: 'front-leg-r', material: COAT, size: [2.15, 6.15, 2.65], center: [-2.25, 4.325, 3.8] },
+  { id: 'front-paw-r', material: POINT, size: [2.4, 1.5, 3.0], center: [-2.3, 0.75, 4.8] },
 ];
 
 const TAIL_BOXES: BoxPart[] = [
-  { id: 'tail-base', material: ORANGE, size: [1.7, 1.7, 1.7], center: [0, 0.85, -3.225] },
-  { id: 'tail-mid', material: ORANGE, size: [1.7, 1.7, 2.95], center: [0, 0.85, -5.5] },
-  { id: 'tail-mid-2', material: ORANGE, size: [1.7, 1.7, 3.05], center: [0, 0.85, -8.45] },
-  { id: 'tail-tip', material: WHITE, size: [1.7, 1.7, 2.0], center: [0, 0.85, -10.925] },
+  { id: 'tail-base', material: TAIL, size: [1.7, 1.7, 1.7], center: [0, 0.85, -3.225] },
+  { id: 'tail-mid', material: TAIL, size: [1.7, 1.7, 2.95], center: [0, 0.85, -5.5] },
+  { id: 'tail-mid-2', material: TAIL, size: [1.7, 1.7, 3.05], center: [0, 0.85, -8.45] },
+  { id: 'tail-tip', material: POINT, size: [1.7, 1.7, 2.0], center: [0, 0.85, -10.925] },
 ];
 
 /**
@@ -278,6 +351,9 @@ const topBandZ = (top: number, from: number, to: number): StripeZone => ({
   max: [OPEN, OPEN, to],
 });
 
+/** Tabby markings shade the coat, except the tailbone's: that one opens the tail's own run. */
+const STRIPE_ROLES: Record<string, PaletteKey> = { tailbone: TAIL_SHADE };
+
 const STRIPES: Record<string, StripeZone[]> = {
   // Two stripes down the crown, brow to nape, one either side of the midline and running just
   // inside the ears (whose inner edges stand at |x| = 1.3). They lie ALONG the skull, not
@@ -312,7 +388,51 @@ const STRIPES: Record<string, StripeZone[]> = {
   tailbone: [zBand(-2.55, -1.9)],
 };
 
+/**
+ * A colourpoint is a gradient, not a pattern. On the reference the coat darkens smoothly all
+ * the way into the mask, the ears, the feet and the tail, and there is no edge anywhere on the
+ * animal — so this coat is not painted with markings at all. Each of these is a place the
+ * points take over completely, `full` blocks out from its centre, releasing the coat again by
+ * `fade`; the model bakes the strongest of them per vertex in the rest pose and the fur
+ * materials mix towards the seal colour by it.
+ *
+ * The tabby wants none of this and turns the whole thing off, which is what POINT_BLEND does.
+ */
+const POINT_FIELD = [
+  { at: [0, 9.2, 6.4], full: 1.9, fade: 4.2 }, // the mask, measured from the bridge of the nose
+  { at: [2.3, 0.4, 4.8], full: 1.6, fade: 3.9 }, // front feet, fading out around the elbow
+  { at: [-2.3, 0.4, 4.8], full: 1.6, fade: 3.9 },
+  { at: [3.5, 0.4, 2.65], full: 1.6, fade: 3.3 }, // hind feet, held off the haunch above them
+  { at: [-3.5, 0.4, 2.65], full: 1.6, fade: 3.3 },
+  { at: [0, 0.85, -2.4], full: 0.8, fade: 2.8 }, // where the tail leaves the rump
+].map(({ at, full, fade }) => ({ at: new THREE.Vector3(...at), full, fade }));
+
+/**
+ * The tail is measured along itself rather than by the field: it curls a long way out to one
+ * side, so a radius wide enough to darken its tip would have swallowed the haunch with it.
+ */
+const TAIL_ROOT = new THREE.Vector3(0, 0.85, -2.4);
+const TAIL_POINT = { full: 0.4, fade: 2.6 };
+
+/** How strongly the gradient is applied, per coat. The tabby has no points at all. */
+const POINT_BLEND: Record<VoxelCatTheme, number> = { light: 0, dark: 1 };
+
+/**
+ * The fur the gradient runs through. The bib, whiskers, eyes and nose keep their own colour,
+ * and so do the ears: a colourpoint's are solid dark to the base, and a radius wide enough to
+ * carry one to its tip also stained a round patch of crown around it. The ear meets the head
+ * at a silhouette rather than across a face, so it can take its colour flat without an edge
+ * showing anywhere.
+ */
+const GRADIENT_ROLES: PaletteKey[] = [COAT, COAT_SHADE, TAIL, TAIL_SHADE, POINT];
+
+/** 1 deep along the tail, 0 where it leaves the rump. The only part of the field baked per vertex. */
+const tailPointness = (at: THREE.Vector3) =>
+  THREE.MathUtils.smoothstep(at.distanceTo(TAIL_ROOT), TAIL_POINT.full, TAIL_POINT.fade);
+
 export type VoxelCatOptions = {
+  /** The coat to build in. Swap it later with `setTheme`; the geometry never changes. */
+  theme?: VoxelCatTheme;
   /** Uniform scale applied to the root group. 1 = one block per world unit. */
   scale?: number;
   /**
@@ -351,6 +471,11 @@ export type VoxelCatModel = {
   /** Every mesh by part id, for explode/highlight/hit-testing. */
   parts: Record<string, THREE.Mesh>;
   materials: Record<PaletteKey, THREE.MeshStandardMaterial>;
+  /**
+   * Wear the other coat: repaints every material and shows that coat's markings in place of
+   * the other's. No geometry, pose or material identity changes, so nothing recompiles.
+   */
+  setTheme: (theme: VoxelCatTheme) => void;
   dispose: () => void;
 };
 
@@ -361,17 +486,111 @@ export type VoxelCatModel = {
  */
 export const VOXEL_CAT_LIGHT_DIRECTION: readonly [number, number, number] = [0.25, 0.88, 0.4];
 
-function makeMaterials(): Record<PaletteKey, THREE.MeshStandardMaterial> {
+/** How each role takes the light. The palette changes with the theme; the finish does not. */
+const FINISH: Record<PaletteKey, number> = {
+  [COAT]: 0.7,
+  [COAT_SHADE]: 0.7,
+  [EAR]: 0.7,
+  [TAIL]: 0.7,
+  [TAIL_SHADE]: 0.7,
+  [POINT]: 0.72,
+  [BELLY]: 0.72,
+  [WHISKER]: 0.72,
+  [SEAL]: 0.7,
+  [EYE]: 0.55,
+  [SKIN]: 0.72,
+  [EAR_INNER]: 0.72,
+};
+
+function makeMaterials(palette: VoxelCatPalette): Record<PaletteKey, THREE.MeshStandardMaterial> {
   // Solid satin albedos tuned against the reference under the hero's neutral studio rig.
-  const make = (color: string, roughness: number, name: string) =>
-    new THREE.MeshStandardMaterial({ color: new THREE.Color(color), roughness, metalness: 0, name });
-  return {
-    [ORANGE]: make('#ed8c20', 0.7, 'voxel-cat-orange'),
-    [WHITE]: make('#ffffff', 0.72, 'voxel-cat-white'),
-    [ONYX]: make('#0d0d0d', 0.55, 'voxel-cat-onyx'),
-    [ROSE]: make('#f69caa', 0.72, 'voxel-cat-rose'),
-    [STRIPE]: make(STRIPE_COLOR, 0.7, 'voxel-cat-stripe'),
-  };
+  const roles = Object.keys(FINISH) as PaletteKey[];
+  return Object.fromEntries(
+    roles.map((role) => [
+      role,
+      new THREE.MeshStandardMaterial({
+        color: new THREE.Color(palette[role]),
+        roughness: FINISH[role],
+        metalness: 0,
+        name: `voxel-cat-${role}`,
+      }),
+    ]),
+  ) as Record<PaletteKey, THREE.MeshStandardMaterial>;
+}
+
+/**
+ * Mix the fur towards the point colour by the baked per-vertex field. The gradient is smooth by
+ * construction, so unlike a hard marking it needs no antialiasing, and every fur material shares
+ * one program: the shape of the coat lives in the attribute, not in the shader source.
+ */
+function applyPointGradient(
+  materials: Record<PaletteKey, THREE.MeshStandardMaterial>,
+  color: { value: THREE.Color },
+  blend: { value: number },
+) {
+  const at = { value: POINT_FIELD.map((zone) => zone.at) };
+  const range = { value: POINT_FIELD.map((zone) => new THREE.Vector2(zone.full, zone.fade)) };
+  for (const role of GRADIENT_ROLES) {
+    const material = materials[role];
+    material.onBeforeCompile = (shader) => {
+      // Shared uniform objects, so a later repaint reaches a program compiled before it.
+      shader.uniforms.uPointColor = color;
+      shader.uniforms.uPointBlend = blend;
+      shader.uniforms.uPointAt = at;
+      shader.uniforms.uPointRange = range;
+      // The rest position rides along as a varying. It interpolates exactly across a flat
+      // face, which is the whole reason the field is evaluated per fragment: sampled at the
+      // eight corners of a box instead, a 7 x 5 head could not have held a mask at all.
+      shader.vertexShader =
+        `attribute vec3 aBlock;\nattribute float aPoint;\nvarying vec3 vBlock;\nvarying float vPoint;\n${shader.vertexShader}`.replace(
+          '#include <begin_vertex>',
+          '#include <begin_vertex>\n\tvBlock = aBlock;\n\tvPoint = aPoint;',
+        );
+      // After <color_fragment> diffuseColor is the final albedo and nothing has been lit yet,
+      // so mixing here leaves shading, shadows and tone mapping to do their usual work.
+      shader.fragmentShader = `uniform vec3 uPointColor;
+uniform float uPointBlend;
+uniform vec3 uPointAt[${POINT_FIELD.length}];
+uniform vec2 uPointRange[${POINT_FIELD.length}];
+varying vec3 vBlock;
+varying float vPoint;
+${shader.fragmentShader}`.replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+\tfloat point = vPoint;
+\tfor (int i = 0; i < ${POINT_FIELD.length}; i++) {
+\t\tpoint = max(point, 1.0 - smoothstep(uPointRange[i].x, uPointRange[i].y, distance(vBlock, uPointAt[i])));
+\t}
+\tdiffuseColor.rgb = mix(diffuseColor.rgb, uPointColor, point * uPointBlend);`,
+      );
+    };
+    material.customProgramCacheKey = () => 'voxel-cat-point';
+  }
+}
+
+/**
+ * Measure every vertex where its part actually rests — the tail's bends and the torso's squash
+ * included — rather than where its table entry put it, and store the field on the geometry.
+ */
+function bakePointField(group: THREE.Group, parts: Record<string, THREE.Mesh>) {
+  group.updateMatrixWorld(true);
+  const toRoot = new THREE.Matrix4();
+  const rootInverse = new THREE.Matrix4().copy(group.matrixWorld).invert();
+  const vertex = new THREE.Vector3();
+  for (const [id, mesh] of Object.entries(parts)) {
+    const positions = mesh.geometry.getAttribute('position');
+    const block = new Float32Array(positions.count * 3);
+    const tail = new Float32Array(positions.count);
+    toRoot.multiplyMatrices(rootInverse, mesh.matrixWorld);
+    const onTail = id.startsWith('tail');
+    for (let index = 0; index < positions.count; index++) {
+      vertex.fromBufferAttribute(positions, index).applyMatrix4(toRoot);
+      vertex.toArray(block, index * 3);
+      if (onTail) tail[index] = tailPointness(vertex);
+    }
+    mesh.geometry.setAttribute('aBlock', new THREE.BufferAttribute(block, 3));
+    mesh.geometry.setAttribute('aPoint', new THREE.BufferAttribute(tail, 1));
+  }
 }
 
 function boxGeometry(size: [number, number, number], chamfer: number): THREE.BufferGeometry {
@@ -415,7 +634,7 @@ function tailSegments(link: number): TailSegment[] {
     return [{ id: part.id, material: part.material, start, end, startSlope, endSlope, mitre: startMitre }];
   }
   return [
-    { id: `${part.id}-band`, material: STRIPE, start, end: band, startSlope, endSlope: 0, mitre: startMitre },
+    { id: `${part.id}-band`, material: TAIL_SHADE, start, end: band, startSlope, endSlope: 0, mitre: startMitre },
     { id: part.id, material: part.material, start: band, end, startSlope: 0, endSlope, mitre: 'end' },
   ];
 }
@@ -479,8 +698,13 @@ function extrudeGeometry(part: ExtrudePart, chamfer: number): THREE.BufferGeomet
 }
 
 export function createVoxelCatModel(options: VoxelCatOptions = {}): VoxelCatModel {
-  const { scale = 1, chamfer = 0.018, castShadow = true, receiveShadow = true } = options;
-  const materials = makeMaterials();
+  const { theme = 'light', scale = 1, chamfer = 0.018, castShadow = true, receiveShadow = true } = options;
+  const materials = makeMaterials(VOXEL_CAT_PALETTES[theme]);
+  const pointColor = { value: new THREE.Color() };
+  const pointBlend = { value: 0 };
+  applyPointGradient(materials, pointColor, pointBlend);
+  /** The tabby's stripe plates, hidden whole while the colourpoint coat is on. */
+  const stripes: THREE.Mesh[] = [];
   const parts: Record<string, THREE.Mesh> = {};
   const geometries: THREE.BufferGeometry[] = [];
 
@@ -520,7 +744,7 @@ export function createVoxelCatModel(options: VoxelCatOptions = {}): VoxelCatMode
     return mesh;
   };
 
-  /** One stripe: its zone clipped to the part it marks, and lifted off the faces that clipped it. */
+  /** One marking: its zone clipped to the part it marks, and lifted off the faces that clipped it. */
   const addStripe = (
     part: BoxPart,
     zone: StripeZone,
@@ -539,15 +763,16 @@ export function createVoxelCatModel(options: VoxelCatOptions = {}): VoxelCatMode
       size[axis] = max - min;
       center[axis] = (min + max) / 2;
     }
-    const mesh = addMesh(boxGeometry(size, chamfer), `${part.id}-stripe-${index}`, STRIPE, parent, origin, center);
+    const role = STRIPE_ROLES[part.id] ?? COAT_SHADE;
+    const mesh = addMesh(boxGeometry(size, chamfer), `${part.id}-stripe-${index}`, role, parent, origin, center);
     // The block underneath already casts this silhouette; a second caster only risks acne.
     mesh.castShadow = false;
+    stripes.push(mesh);
   };
 
   const addBox = (part: BoxPart, parent: THREE.Object3D, origin: readonly [number, number, number]) => {
     const mesh = addMesh(boxGeometry(part.size, chamfer), part.id, part.material, parent, origin, part.center);
-    const zones = STRIPES[part.id];
-    if (zones) zones.forEach((zone, index) => addStripe(part, zone, index, parent, origin));
+    STRIPES[part.id]?.forEach((zone, index) => addStripe(part, zone, index, parent, origin));
     return mesh;
   };
 
@@ -565,6 +790,15 @@ export function createVoxelCatModel(options: VoxelCatOptions = {}): VoxelCatMode
     const geometry = extrudeGeometry(part, chamfer);
     geometry.translate(-origin[0], -origin[1], -origin[2]);
     return addMesh(geometry, part.id, part.material, parent, origin, origin);
+  };
+
+  const setTheme = (next: VoxelCatTheme) => {
+    const palette = VOXEL_CAT_PALETTES[next];
+    for (const [role, material] of Object.entries(materials)) material.color.set(palette[role as PaletteKey]);
+    pointColor.value.set(palette[SEAL]);
+    pointBlend.value = POINT_BLEND[next];
+    // A colourpoint has no tabby striping, so the plates go away whole rather than change colour.
+    for (const mesh of stripes) mesh.visible = next === 'light';
   };
 
   const group = new THREE.Group();
@@ -628,11 +862,16 @@ export function createVoxelCatModel(options: VoxelCatOptions = {}): VoxelCatMode
   tail4.userData.restYaw = TAIL_YAW[3];
   addTail(3, tail4, TAIL_JOINT_4);
 
+  bakePointField(group, parts);
+  // The materials already hold the right colours; this is what sets the gradient and the plates.
+  setTheme(theme);
+
   return {
     group,
     joints: { body, chest, eyeL, eyeR, head, earL, earR, frontLegL, frontLegR, tail1, tail2, tail3, tail4 },
     parts,
     materials,
+    setTheme,
     dispose: () => {
       for (const geometry of geometries) geometry.dispose();
       for (const material of Object.values(materials)) material.dispose();

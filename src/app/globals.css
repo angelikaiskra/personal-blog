@@ -24,17 +24,20 @@
   --code-bg: oklch(0.97 0 0);
   --max-width: 68.75rem;
 
+  /* Halo behind the hero cat. The accent is warm, which is what the orange tabby wants. */
+  --cat-halo: oklch(0.8203 0.1449 79.11);
+
   --shadow-brutalist-sm: 1px 2px 0 0 oklch(0 0 0);
   --shadow-brutalist-md: 3px 4px 0 0 oklch(0 0 0);
 }
 
 .dark {
-  --background: #0F0D0E;
-  --foreground: #F5F0E6;
+  --background: #0f0d0e;
+  --foreground: #f5f0e6;
   --muted: oklch(0.17 0 0);
   --muted-hover: oklch(0.3328 0.0101 7.84);
   --muted-fg: #958387;
-  --border: #3B3435;
+  --border: #3b3435;
   --primary: oklch(0.8203 0.1449 79.11);
   --primary-fg: oklch(0.235 0 0);
   --primary-hover: #e9a529;
@@ -43,11 +46,14 @@
   --accent: oklch(0.8203 0.1449 79.11);
   --accent-fg: oklch(0.98 0 0);
   --link-accent: oklch(0.7206 0.1353 225.97);
-  --card: #0F0D0E;
-  --card-border: #6F6265;
-  --surface: #0F0D0E;
+  --card: #0f0d0e;
+  --card-border: #6f6265;
+  --surface: #0f0d0e;
   --code-bg: oklch(0.97 0 0);
   --max-width: 68.75rem;
+
+  /* A dark brown ground for the night coat, warm enough to sit with its brown eyes. */
+  --cat-halo: oklch(0.45 0.0702 52);
 }
 
 @theme inline {
@@ -69,6 +75,7 @@
   --color-card-border: var(--card-border);
   --color-surface: var(--surface);
   --color-code-bg: var(--code-bg);
+  --color-cat-halo: var(--cat-halo);
 
   --shadow-brutalist-sm: var(--shadow-brutalist-sm);
   --shadow-brutalist-md: var(--shadow-brutalist-md);
