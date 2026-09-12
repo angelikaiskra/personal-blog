@@ -33,12 +33,12 @@ function Badge<T extends React.ElementType = 'span'>({
   children,
   ...props
 }: BadgeProps<T>) {
-  const Component = as ?? 'span';
+  const Component: React.ElementType = as ?? 'span';
 
-  return (
-    <Component className={cn(badgeVariants({ color, hoverColor, className }))} {...props}>
-      {children}
-    </Component>
+  return React.createElement(
+    Component,
+    { className: cn(badgeVariants({ color, hoverColor, className })), ...props },
+    children,
   );
 }
 

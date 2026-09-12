@@ -52,8 +52,7 @@
   --code-bg: oklch(0.97 0 0);
   --max-width: 68.75rem;
 
-  /* A dark brown ground for the night coat, warm enough to sit with its brown eyes. */
-  --cat-halo: oklch(0.45 0.0702 52);
+  --cat-halo: oklch(0.9245 0.0594 52.49)
 }
 
 @theme inline {

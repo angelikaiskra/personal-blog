@@ -96,13 +96,13 @@ export const VOXEL_CAT_PALETTES = {
     [SKIN]: '#6f5a50',
     // Barely off the shell around it. On the reference the inner ear is dark too; lift it any
     // further and the ear reads as a notch cut out of the head rather than as an ear.
-    [EAR_INNER]: '#513c34',
+    [EAR_INNER]: '#ae8b7b',
   },
 } satisfies Record<string, VoxelCatPalette>;
 
 export type VoxelCatTheme = keyof typeof VOXEL_CAT_PALETTES;
 
-/** A part positioned by its centre, in world blocks. */
+/** A part positioned by its centre, in world blocks. Zero depth makes a flat marking. */
 type BoxPart = {
   id: string;
   material: PaletteKey;
@@ -257,8 +257,10 @@ const HEAD_BOXES: BoxPart[] = [
   // The white glint sits in a DIFFERENT cell of each eye's 2x2 grid — lateral on the cat's
   // left, medial on its right, so both land on the same world side. Measured in the front
   // reference, verified in the three-quarter one: it is a stylisation, not a mirroring bug.
-  { id: 'eye-cell-upper-lateral', material: WHISKER, size: [0.65, 0.65, 0.06], center: [1.895, 10.675, 6.11] },
-  { id: 'eye-cell-upper-medial', material: WHISKER, size: [0.65, 0.65, 0.06], center: [-1.245, 10.675, 6.11] },
+  // Flat cells sit just above the eye's front face (6.08), avoiding depth flicker without
+  // the parallax of a raised block as the head turns.
+  { id: 'eye-cell-upper-lateral', material: WHISKER, size: [0.65, 0.65, 0], center: [1.895, 10.675, 6.081] },
+  { id: 'eye-cell-upper-medial', material: WHISKER, size: [0.65, 0.65, 0], center: [-1.245, 10.675, 6.081] },
   { id: 'whisker-l1', material: WHISKER, size: [2.4, 0.28, 0.28], center: [3.1, 8.88, 6.04] },
   { id: 'whisker-l2', material: WHISKER, size: [2.4, 0.28, 0.28], center: [3.1, 7.9, 6.04] },
   { id: 'whisker-r1', material: WHISKER, size: [2.4, 0.28, 0.28], center: [-3.1, 8.88, 6.04] },
@@ -595,6 +597,7 @@ function bakePointField(group: THREE.Group, parts: Record<string, THREE.Mesh>) {
 
 function boxGeometry(size: [number, number, number], chamfer: number): THREE.BufferGeometry {
   const [w, h, d] = size;
+  if (d === 0) return new THREE.PlaneGeometry(w, h);
   const radius = Math.min(chamfer, Math.min(w, h, d) * 0.4);
   if (radius <= 1e-4) return new THREE.BoxGeometry(w, h, d);
   return new RoundedBoxGeometry(w, h, d, 1, radius);
@@ -772,6 +775,8 @@ export function createVoxelCatModel(options: VoxelCatOptions = {}): VoxelCatMode
 
   const addBox = (part: BoxPart, parent: THREE.Object3D, origin: readonly [number, number, number]) => {
     const mesh = addMesh(boxGeometry(part.size, chamfer), part.id, part.material, parent, origin, part.center);
+    // Flat markings share the supporting block's silhouette and should not cast a raised edge.
+    if (part.size[2] === 0) mesh.castShadow = false;
     STRIPES[part.id]?.forEach((zone, index) => addStripe(part, zone, index, parent, origin));
     return mesh;
   };

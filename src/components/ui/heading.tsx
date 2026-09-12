@@ -1,4 +1,4 @@
-import type { ComponentPropsWithoutRef, ElementType } from 'react';
+import { createElement, type ComponentPropsWithoutRef, type ElementType } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
@@ -27,8 +27,8 @@ type HeadingProps<T extends ElementType = 'span'> = {
   Omit<ComponentPropsWithoutRef<T>, 'as' | 'variant' | 'color'>;
 
 export function Heading<T extends ElementType = 'span'>({ as, color, variant, className, ...props }: HeadingProps<T>) {
-  const Component = as ?? 'span';
+  const Component: ElementType = as ?? 'span';
   const classes = cn(headingVariants({ variant, color }), className);
 
-  return <Component className={classes} {...props} />;
+  return createElement(Component, { className: classes, ...props });
 }
