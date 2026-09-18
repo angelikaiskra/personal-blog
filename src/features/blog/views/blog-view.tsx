@@ -7,17 +7,17 @@ import { Card } from '@/components/ui/card';
 import { Heading } from '@/components/ui/heading';
 import { MaxWidthContainer } from '@/components/ui/max-width-container';
 import { Text } from '@/components/ui/text';
-import { postTags, type PostTagKey } from '@/config/tags';
+import { postCategories, type PostCategoryKey } from '@/config/categories';
 import { cn } from '@/lib/utils';
 
 interface BlogViewProps {
-  selectedTag?: PostTagKey;
+  selectedCategory?: PostCategoryKey;
 }
 
-export function BlogView({ selectedTag }: BlogViewProps) {
-  const selectedTagConfig = postTags.find((tag) => tag.key === selectedTag);
+export function BlogView({ selectedCategory }: BlogViewProps) {
+  const selectedCategoryConfig = postCategories.find((category) => category.key === selectedCategory);
   const posts = allPosts
-    .filter((post) => post.published && (!selectedTag || post.tags.includes(selectedTag)))
+    .filter((post) => post.published && (!selectedCategory || post.categories.includes(selectedCategory)))
     .sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime());
 
   return (
@@ -25,7 +25,7 @@ export function BlogView({ selectedTag }: BlogViewProps) {
       <section className="mt-15 sm:mt-20">
         <div className="flex items-end justify-between gap-4">
           <Heading as="h1" variant="h1">
-            {selectedTagConfig ? `${selectedTagConfig.label}` : 'All posts'}
+            {selectedCategoryConfig ? `${selectedCategoryConfig.label}` : 'All posts'}
           </Heading>
           <Text as="p" variant="base" className="font-medium">
             {posts.length} {posts.length === 1 ? 'article' : 'articles'}
@@ -35,24 +35,24 @@ export function BlogView({ selectedTag }: BlogViewProps) {
         <div className="mt-6 flex flex-wrap gap-3 sm:mt-8">
           <Badge
             as={Link}
-            className={cn('px-4', !selectedTag && 'bg-primary hover:bg-primary-hover')}
+            className={cn('px-4', !selectedCategory && 'bg-primary hover:bg-primary-hover')}
             href="/blog"
-            aria-current={!selectedTag ? 'page' : undefined}
+            aria-current={!selectedCategory ? 'page' : undefined}
           >
             Show all
           </Badge>
-          {postTags.map((tag) => {
-            const isSelected = tag.key === selectedTag;
+          {postCategories.map((category) => {
+            const isSelected = category.key === selectedCategory;
 
             return (
               <Badge
-                key={tag.key}
+                key={category.key}
                 as={Link}
                 className={cn('px-4', isSelected && 'bg-primary hover:bg-primary-hover')}
-                href={`/category/${tag.key}`}
+                href={`/category/${category.key}`}
                 aria-current={isSelected ? 'page' : undefined}
               >
-                {tag.label}
+                {category.label}
               </Badge>
             );
           })}
@@ -92,7 +92,7 @@ export function BlogView({ selectedTag }: BlogViewProps) {
         </ul>
       ) : (
         <Text as="p" color="muted" className="mt-10">
-          {selectedTagConfig ? `No posts in ${selectedTagConfig.label} yet.` : 'No posts yet.'}
+          {selectedCategoryConfig ? `No posts in ${selectedCategoryConfig.label} yet.` : 'No posts yet.'}
         </Text>
       )}
     </MaxWidthContainer>

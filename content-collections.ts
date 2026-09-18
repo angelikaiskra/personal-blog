@@ -1,4 +1,4 @@
-import { postTagKeys } from '@/config/tags';
+import { postCategoryKeys } from '@/config/categories';
 import { defineCollection, defineConfig } from '@content-collections/core';
 import readingTime from 'reading-time';
 import { z } from 'zod';
@@ -6,14 +6,15 @@ import { z } from 'zod';
 const posts = defineCollection({
   name: 'posts',
   directory: 'content/posts',
-  include: '*.mdx',
+  include: '**/*.mdx',
   schema: z.object({
     title: z.string(),
     excerpt: z.string(),
     created: z.string(),
     lastUpdated: z.string(),
-    tags: z.array(z.enum(postTagKeys)),
+    categories: z.array(z.enum(postCategoryKeys)),
     published: z.boolean().default(true),
+    showTableOfContents: z.boolean().default(true),
     content: z.string(),
   }),
   transform: (document) => {

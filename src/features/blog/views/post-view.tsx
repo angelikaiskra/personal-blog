@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { format, parseISO } from 'date-fns';
+import Image from 'next/image';
 import { MDXRemote } from 'next-mdx-remote/rsc';
 import rehypeSlug from 'rehype-slug';
 import remarkGfm from 'remark-gfm';
@@ -7,7 +8,7 @@ import type { Post } from 'content-collections';
 
 import { Heading } from '@/components/ui/heading';
 import { MaxWidthContainer } from '@/components/ui/max-width-container';
-import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 type PostViewProps = {
   post: Post;
@@ -20,10 +21,11 @@ type TableOfContentsItem = {
 
 export async function PostView({ post }: PostViewProps) {
   const tableOfContents = getTableOfContents(post.content);
+  const showTableOfContents = post.showTableOfContents && tableOfContents.length > 0;
 
   return (
     <MaxWidthContainer className="mt-15 pb-20 sm:mt-20">
-      <div className="flex justify-center gap-x-16 lg:justify-between">
+      <div className={cn('flex justify-center gap-x-16', { 'lg:justify-between': showTableOfContents })}>
         <main className="max-w-2xl">
           <header>
             <Heading as="h1" variant="h1" className="leading-tight">
@@ -42,6 +44,7 @@ export async function PostView({ post }: PostViewProps) {
               source={post.content}
               options={{ mdxOptions: { remarkPlugins: [remarkGfm], rehypePlugins: [rehypeSlug] } }}
               components={{
+                PostImage,
                 Strike: ({ children }: { children: ReactNode }) => <s>{children}</s>,
                 Tip: ({ children }: { children: ReactNode }) => (
                   <aside className="border-foreground/30 text-muted-fg my-6 border-l-2 pl-4">{children}</aside>
@@ -52,9 +55,18 @@ export async function PostView({ post }: PostViewProps) {
           </article>
         </main>
 
-        {tableOfContents.length > 0 && <TableOfContents items={tableOfContents} />}
+        {showTableOfContents && <TableOfContents items={tableOfContents} />}
       </div>
     </MaxWidthContainer>
+  );
+}
+
+async function PostImage({ src, alt }: { src: string; alt: string }) {
+  const imagePath = src.endsWith('.png') ? src.slice(0, -'.png'.length) : src;
+  const { default: image } = await import(`../../../../content/posts/${imagePath}.png`);
+
+  return (
+    <Image src={image} alt={alt} sizes="(max-width: 672px) 100vw, 672px" placeholder="blur" className="rounded-lg" />
   );
 }
 

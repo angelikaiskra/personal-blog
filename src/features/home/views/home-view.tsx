@@ -8,7 +8,7 @@ import { AnimatedLink } from '@/components/ui/animated-link';
 import { Button } from '@/components/ui/button';
 import { ArrowRightLongIcon } from '@/components/icons/arrow-right-long-icon';
 import { ArrowRightIcon } from '@/components/icons/arrow-right-icon';
-import { postTags } from '@/config/tags';
+import { postCategories } from '@/config/categories';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
 import { VoxelCatHero } from '../components/voxel-cat/voxel-cat-hero';
@@ -95,9 +95,9 @@ export function HomeView() {
           </Heading>
 
           <div className="mt-8 flex flex-wrap gap-3 sm:max-w-72">
-            {postTags.map((tag) => (
-              <Badge key={tag.key} as={Link} href={`/category/${tag.key}`}>
-                {tag.label}
+            {postCategories.map((category) => (
+              <Badge key={category.key} as={Link} href={`/category/${category.key}`}>
+                {category.label}
               </Badge>
             ))}
           </div>

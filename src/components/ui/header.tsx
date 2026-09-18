@@ -51,7 +51,7 @@ export function Header() {
 function Avatar({ isMobileMenuOpen }: { isMobileMenuOpen: boolean }) {
   return (
     <Image
-      src="/avatar-pixelated.webp"
+      src="/avatar.webp"
       alt="Angelika Iskra"
       width={48}
       height={48}
