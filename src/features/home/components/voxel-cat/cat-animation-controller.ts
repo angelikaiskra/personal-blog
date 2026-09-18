@@ -1,6 +1,5 @@
-/** Seconds and radians; all idle tuning lives here. */
 export const CAT_IDLE = {
-  breath: { duration: 3.8, inhale: 0.42, depth: 0.018 },
+  breath: { duration: 3.8, inhale: 0.42, depth: 0.06 },
   blink: { interval: [2, 4.5], close: 0.1, hold: 0.065, open: 0.2, doubleChance: 0.2, doubleGap: 0.16 },
   ear: { interval: [3, 6], attack: 0.16, hold: 0.12, release: 0.7, amplitude: [0.07, 0.11] },
   tail: { interval: [0.9, 2.4], attack: 0.6, hold: 0.2, release: 1.15, delay: 0.18, amplitude: [0.17, 0.28] },
@@ -44,7 +43,6 @@ export const neutralCatPose = (): CatPose => ({
 
 const smooth = (t: number) => {
   const x = Math.max(0, Math.min(1, t));
-  // Floating-point cancellation near 1 can otherwise exceed the pose range by an epsilon.
   return Math.max(0, Math.min(1, x * x * x * (x * (x * 6 - 15) + 10)));
 };
 const envelope = (t: number, attack: number, hold: number, release: number) =>
@@ -81,7 +79,6 @@ export function createCatAnimationController(random: () => number = Math.random)
     if (!Number.isFinite(deltaSeconds) || deltaSeconds <= 0) return pose;
     time += deltaSeconds;
 
-    // Absolute event times preserve the same RNG order and rhythm at 30, 60 and 120 Hz.
     for (;;) {
       let kind = kinds[0];
       for (const candidate of kinds) if (due[candidate] < due[kind]) kind = candidate;

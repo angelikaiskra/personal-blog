@@ -5,9 +5,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useTheme } from 'next-themes';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { CAT_IDLE, createCatAnimationController } from './cat-animation-controller';
-import { createCatAnimationRig } from './cat-animation-rig';
-import { createCatInteraction } from './cat-interaction-controller';
+import { createCatDriver } from './cat-driver';
 import { createVoxelCatModel, type VoxelCatModel } from './create-voxel-cat-model';
 
 /** Near-parallel reference edges: approximately 27° yaw and 18° elevation. */
@@ -15,23 +13,16 @@ const TURN = -0.47;
 const ELEVATION = 0.31;
 const DISTANCE = 30;
 
-/**
- * Fraction of the panel the cat is allowed to fill. The model is authored in blocks and its
- * tail sweeps well out to one side, so it is fitted to the panel rather than given a fixed
- * scale: the hero column is a `minmax(260px, 1fr)` grid track, and at the narrower end of
- * that a fixed scale either cropped the head and the tail or left the cat tiny once the
- * column widened again.
- */
+/** Fraction of the panel the cat is allowed to fill. */
 const FILL = 0.81;
 
 function VoxelCatScene({ model, bounds }: { model: VoxelCatModel; bounds: THREE.Box3 }) {
   const animation = useRef<{
-    controller: ReturnType<typeof createCatAnimationController>;
-    rig: ReturnType<typeof createCatAnimationRig>;
-    interaction: ReturnType<typeof createCatInteraction>;
+    cat: ReturnType<typeof createCatDriver>;
     pointer: { clientX: number; clientY: number; active: boolean };
+    /** Last measured canvas box; null means "measure again on the next frame that needs it". */
+    rect: DOMRect | null;
     running: boolean;
-    firstFrame: boolean;
   } | null>(null);
 
   const invalidate = useThree((state) => state.invalidate);
@@ -39,67 +30,65 @@ function VoxelCatScene({ model, bounds }: { model: VoxelCatModel; bounds: THREE.
   const viewport = useThree((state) => state.viewport);
   const { resolvedTheme } = useTheme();
 
-  // Bounds contain actual vertices in the camera's orientation, excluding the empty
-  // corners of a world-axis bounding box. This keeps the face readable at narrow widths.
+  // Bounds contain actual vertices in the camera's orientation, not a world-axis box's
+  // empty corners, so the face stays readable at narrow widths.
   const size = useMemo(() => bounds.getSize(new THREE.Vector3()), [bounds]);
   const centre = useMemo(
     () => bounds.getCenter(new THREE.Vector3()).applyAxisAngle(new THREE.Vector3(1, 0, 0), -ELEVATION),
     [bounds],
   );
   const fit = Math.min((viewport.width * FILL) / size.x, (viewport.height * FILL) / size.y);
-  // Centring is what the lens is aimed at, so it has to happen on all three axes now: the
-  // camera looks at the origin, and under a tilt an un-centred depth slides the cat up or
-  // down the panel just as an un-centred height would.
+  // Centred on all three axes: the camera looks at the origin, so under a tilt an
+  // un-centred depth slides the cat up or down the panel just like an un-centred height would.
   const offsetX = -centre.x * fit;
   const offsetZ = -centre.z * fit;
-  // The model's own origin is the ground the paws stand on, so this is where the floor lands.
   const floorY = -centre.y * fit;
 
   useLayoutEffect(() => {
-    // Apply later theme changes before the next frame as well. The initial coat is already
-    // set when the model is built, using the class stamped by next-themes' blocking script.
+    // Applies later theme changes; the initial coat is already set at build time from the
+    // class next-themes' blocking script stamps.
     const dark = resolvedTheme ? resolvedTheme === 'dark' : document.documentElement.classList.contains('dark');
     model.setTheme(dark ? 'dark' : 'light');
     invalidate();
   }, [invalidate, model, resolvedTheme]);
 
   useEffect(() => {
-    const controller = createCatAnimationController();
-    const rig = createCatAnimationRig(model);
-    const interaction = createCatInteraction(model);
+    const cat = createCatDriver(model);
     const state = {
-      controller,
-      rig,
-      interaction,
+      cat,
       pointer: { clientX: 0, clientY: 0, active: false },
+      rect: null as DOMRect | null,
       running: false,
-      firstFrame: true,
     };
     animation.current = state;
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
     let visible = false;
     let reduced = media.matches;
+    let lost = false;
 
     const sync = () => {
       if (media.matches !== reduced) {
         reduced = media.matches;
         if (reduced) {
-          controller.reset();
-          interaction.reset();
-          rig.reset();
+          cat.reset();
           invalidate();
         }
       }
-      const running = visible && !document.hidden && !reduced;
+      const running = visible && !document.hidden && !reduced && !lost;
       if (running !== state.running) {
         state.running = running;
-        state.firstFrame = true;
+        cat.resume();
         // A demand loop cannot restart itself after all pending frames have drained.
         if (running) invalidate();
       }
     };
-    // The hero is `pointer-events-none` so it never steals a click from the page, which
-    // also means the canvas itself sees no pointer events: the window is the only source.
+    // Measuring the canvas inside the frame loop forces a layout flush on every frame, so the
+    // box is cached and dropped whenever something can have moved it.
+    const remeasure = () => {
+      state.rect = null;
+    };
+    // The hero is `pointer-events-none`, so the canvas sees no pointer events of its own —
+    // the window is the only source.
     const track = (event: PointerEvent) => {
       state.pointer.clientX = event.clientX;
       state.pointer.clientY = event.clientY;
@@ -107,17 +96,32 @@ function VoxelCatScene({ model, bounds }: { model: VoxelCatModel; bounds: THREE.
     };
     const forget = () => {
       state.pointer.active = false;
-      interaction.clearPointer();
+      cat.clearPointer();
     };
     const release = (event: PointerEvent) => {
       // A finger that has lifted is nowhere; a mouse that has clicked is still on screen.
       if (event.pointerType !== 'mouse') forget();
     };
+    // Three preventDefaults the loss and rebuilds GL state on restore, but a demand loop has
+    // no pending frame left to draw with — without this the hero stays blank for good.
+    const onLost = () => {
+      lost = true;
+      sync();
+    };
+    const onRestored = () => {
+      lost = false;
+      remeasure();
+      sync();
+    };
     const observer = new IntersectionObserver(([entry]) => {
       visible = entry.isIntersecting && entry.intersectionRatio > 0;
+      remeasure();
       sync();
     });
     observer.observe(canvas);
+    // Catches container-driven resizes that never reach the window.
+    const resizes = new ResizeObserver(remeasure);
+    resizes.observe(canvas);
     document.addEventListener('visibilitychange', sync);
     media.addEventListener('change', sync);
     window.addEventListener('pointermove', track, { passive: true });
@@ -126,11 +130,17 @@ function VoxelCatScene({ model, bounds }: { model: VoxelCatModel; bounds: THREE.
     window.addEventListener('pointercancel', forget, { passive: true });
     document.addEventListener('pointerleave', forget);
     window.addEventListener('blur', forget);
-    rig.reset();
+    window.addEventListener('resize', remeasure, { passive: true });
+    // Capturing, so a scroll inside any ancestor counts, not just the document's own.
+    window.addEventListener('scroll', remeasure, { passive: true, capture: true });
+    canvas.addEventListener('webglcontextlost', onLost);
+    canvas.addEventListener('webglcontextrestored', onRestored);
+    cat.reset();
     invalidate();
 
     return () => {
       observer.disconnect();
+      resizes.disconnect();
       document.removeEventListener('visibilitychange', sync);
       media.removeEventListener('change', sync);
       window.removeEventListener('pointermove', track);
@@ -139,8 +149,12 @@ function VoxelCatScene({ model, bounds }: { model: VoxelCatModel; bounds: THREE.
       window.removeEventListener('pointercancel', forget);
       document.removeEventListener('pointerleave', forget);
       window.removeEventListener('blur', forget);
+      window.removeEventListener('resize', remeasure);
+      window.removeEventListener('scroll', remeasure, { capture: true });
+      canvas.removeEventListener('webglcontextlost', onLost);
+      canvas.removeEventListener('webglcontextrestored', onRestored);
       state.running = false;
-      rig.reset();
+      cat.reset();
       animation.current = null;
     };
   }, [canvas, invalidate, model]);
@@ -148,27 +162,24 @@ function VoxelCatScene({ model, bounds }: { model: VoxelCatModel; bounds: THREE.
   useFrame(({ camera }, delta) => {
     const state = animation.current;
     if (!state?.running) return;
-    // Coalesce pointer events into one bounds read per active frame. Measuring even when
-    // the pointer is stationary keeps its projection current through scrolling and resize.
-    const { pointer, interaction } = state;
+    // Coalesces pointer events into one projection per frame.
+    const { pointer, cat } = state;
     if (pointer.active) {
-      const rect = canvas.getBoundingClientRect();
+      const rect = (state.rect ??= canvas.getBoundingClientRect());
       if (rect.width && rect.height) {
-        interaction.setPointer(
+        cat.setPointer(
           ((pointer.clientX - rect.left) / rect.width) * 2 - 1,
           -((pointer.clientY - rect.top) / rect.height) * 2 + 1,
           rect.width,
           rect.height,
         );
       } else {
-        interaction.clearPointer();
+        // A zero-size box is stale the moment the layout settles; never keep it.
+        state.rect = null;
+        cat.clearPointer();
       }
     }
-    // The first delta can include time off-screen or in a hidden tab. Never catch up.
-    const elapsed = state.firstFrame ? 0 : Math.min(delta, CAT_IDLE.maxDelta);
-    state.firstFrame = false;
-    // The cursor response is a second pose layered over the idle one; the rig merges them.
-    state.rig.applyPose(state.controller.update(elapsed), state.interaction.update(elapsed, camera));
+    cat.update(delta, camera);
     invalidate();
   });
 
@@ -228,19 +239,18 @@ export function VoxelCatCanvas() {
       shadows="percentage"
       dpr={[1, 2]}
       frameloop="demand"
-      // R3F points a default camera at the origin for us, and the scene centres the cat
-      // there, so lifting the position is all it takes to look down on it.
       camera={{
         zoom: 100,
         position: [0, DISTANCE * Math.sin(ELEVATION), DISTANCE * Math.cos(ELEVATION)],
       }}
       gl={{ alpha: true, antialias: true }}
       onCreated={({ gl }) => {
-        gl.outputColorSpace = THREE.SRGBColorSpace;
+        // sRGB output and an exposure of 1 are already the renderer's defaults.
         gl.toneMapping = THREE.NeutralToneMapping;
-        gl.toneMappingExposure = 1;
       }}
     >
+      {/* Studio rig solved from the reference: the orange coat reads 1.00 on up-faces,
+          0.87 on front faces and 0.75 on lateral faces. */}
       <hemisphereLight args={['#fffaf2', '#d6cec1', 1.4]} />
       <directionalLight
         color="#fff8ee"

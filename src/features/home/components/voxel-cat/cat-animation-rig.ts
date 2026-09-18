@@ -20,10 +20,6 @@ export function createCatAnimationRig(model: VoxelCatModel) {
   const glintVisibility = glints.map((glint) => glint.visible);
   const glintRest = glints.map((glint) => glint.position.clone());
 
-  // Mitered ends must follow the changing joint angle. Adjust the existing 24-vertex buffers,
-  // not topology: the two mating planes remain coincident throughout a sway. Each piece has a
-  // single mitred face — the striped links are two boxes meeting on a flat internal plane — so
-  // one joint and one slope describe all of it, and `tailMitre` says which vertices it owns.
   const seams = [
     { mesh: parts['tail-base'], joint: joints.tail2, face: 'end' },
     { mesh: parts['tail-mid-band'], joint: joints.tail2, face: 'start' },
@@ -32,7 +28,6 @@ export function createCatAnimationRig(model: VoxelCatModel) {
     { mesh: parts['tail-mid-2'], joint: joints.tail4, face: 'end' },
     { mesh: parts['tail-tip'], joint: joints.tail4, face: 'start' },
   ].map(({ mesh, joint, face }) => {
-    // A start face leans with half the joint's angle; an end face leans against it.
     const slope = (angle: number) => (face === 'start' ? 1 : -1) * Math.tan(angle / 2);
     const positions = mesh.geometry.getAttribute('position') as THREE.BufferAttribute;
     return {
@@ -41,7 +36,6 @@ export function createCatAnimationRig(model: VoxelCatModel) {
       slope,
       positions,
       rest: Float32Array.from(positions.array),
-      /** Per-vertex lever arm of the mitred face, zero on every other vertex. */
       lever: mesh.geometry.userData.tailMitre as Float32Array,
       restSlope: slope(joint.rotation.y),
       last: joint.rotation.y,
@@ -57,9 +51,10 @@ export function createCatAnimationRig(model: VoxelCatModel) {
         seam.positions.setZ(index, seam.rest[index * 3 + 2] + seam.lever[index] * delta);
       }
       seam.positions.needsUpdate = true;
+      // Only the mitred face moves, but four of twenty-four vertices is not worth a special
+      // case. Bounding volumes are deliberately not refreshed: the tail is never raycast and
+      // its meshes opt out of frustum culling precisely because these bounds cannot keep up.
       seam.mesh.geometry.computeVertexNormals();
-      seam.mesh.geometry.computeBoundingBox();
-      seam.mesh.geometry.computeBoundingSphere();
       seam.last = angle;
     }
   }

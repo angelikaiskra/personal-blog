@@ -2,23 +2,16 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 
 /**
- * Procedural voxel-art cat, rebuilt in code from the reference renders.
- *
- * The unit is one "block"; the ground plane is y = 0, +Y is up, +Z is the direction the
- * cat faces, and +X is the cat's own left. The head block and its features are measured
- * from the reference; the body reads as a single block but is split into a few so the
- * chest between the front legs is a real recess for the white belly fur; the legs, paws
- * and tail are separate blocks added on top of it.
- *
- * The model is built for animation: every mobile part hangs off a named pivot group whose
- * origin sits on the joint, so rotating a joint does the right thing with no extra offsets.
+ * Procedural voxel-art cat, rebuilt in code from the reference renders. The unit is one
+ * "block"; ground is y = 0, +Y is up, +Z is the direction the cat faces, +X is its own left.
+ * Every mobile part hangs off a named pivot group whose origin sits on the joint, so
+ * rotating a joint does the right thing with no extra offsets.
  */
 
 /**
- * Parts are painted by role, not by colour, so the cat can wear a different coat in each
- * theme without a single block moving. `ear` and `tail` are separate from `coat` because a
- * colourpoint darkens them while a tabby keeps them coat-coloured, and `point` is the muzzle,
- * paws and tail tip — the extremities a colourpoint darkens and a tabby wears white on.
+ * Parts are painted by role, not colour, so the cat can wear a different coat per theme
+ * without any block moving. `ear`/`tail` are split from `coat` because a colourpoint darkens
+ * them while a tabby doesn't; `point` is the muzzle, paws and tail tip.
  */
 const COAT = 'coat';
 const COAT_SHADE = 'coat-shade';
@@ -50,17 +43,9 @@ type PaletteKey =
 export type VoxelCatPalette = Record<PaletteKey, string>;
 
 /**
- * A coat per theme.
- *
- * The tabby is the measured one, solved from the reference renders: the plain coat
- * photographs as rgb(240,141,25) and its marking as rgb(208,111,26), and that ratio applied
- * to the orange albedo lands on a burnt orange rather than a true brown.
- *
- * The colourpoint is its inverse, and is authored rather than measured. Its points sit well
- * above a real seal's near-black, which would sink into the dark theme's page and cost the
- * cat its silhouette; the contrast that sells the coat is the one against the cream, not the
- * one against the background. The shade on the body is pulled close to the coat on purpose —
- * a colourpoint carries no tabby striping, so the same markings read as soft shading.
+ * A coat per theme. The tabby is measured off the reference (coat rgb(240,141,25), marking
+ * rgb(208,111,26)); the colourpoint is authored rather than measured, its points kept lighter
+ * than a real seal's near-black so the cat keeps its silhouette against the dark theme's page.
  */
 export const VOXEL_CAT_PALETTES = {
   light: {
@@ -78,10 +63,8 @@ export const VOXEL_CAT_PALETTES = {
     [SKIN]: '#f69caa',
     [EAR_INNER]: '#f69caa',
   },
-  // Every piece of fur starts from the same cream here — coat, ears, tail, feet and muzzle
-  // alike — and the point gradient is what darkens the extremities. That is how the coat
-  // actually works on the reference, and it is why none of these roles carry a brown: putting
-  // one in would reintroduce exactly the edge the gradient exists to avoid.
+  // Every fur role starts from the same cream; the point gradient darkens the extremities,
+  // so none of these carry a brown of their own — that would reintroduce the edge it avoids.
   dark: {
     [COAT]: '#ddd0b8',
     [COAT_SHADE]: '#ddd0b8',
@@ -92,10 +75,9 @@ export const VOXEL_CAT_PALETTES = {
     [BELLY]: '#efe7d6',
     [WHISKER]: '#f5eee0',
     [SEAL]: '#3f2c22',
-    [EYE]: '#7fb6de',
+    [EYE]: '#00ade1',
     [SKIN]: '#6f5a50',
-    // Barely off the shell around it. On the reference the inner ear is dark too; lift it any
-    // further and the ear reads as a notch cut out of the head rather than as an ear.
+    // Barely off the shell around it; any lighter and the ear reads as a notch in the head.
     [EAR_INNER]: '#ae8b7b',
   },
 } satisfies Record<string, VoxelCatPalette>;
@@ -131,7 +113,7 @@ type ExtrudePart = {
  */
 const BODY_JOINT: [number, number, number] = [0, 0, 0];
 const HEAD_JOINT: [number, number, number] = [0, 7.13, 3.48];
-// Lift the complete head rig, including its rotation pivot and ears, above the shoulders.
+// Lifts the whole head rig — pivot and ears included — above the shoulders.
 const HEAD_LIFT = 0.8;
 const EAR_JOINT_L: [number, number, number] = [2.4, 12.05, 3.32];
 const EAR_JOINT_R: [number, number, number] = [-2.4, 12.05, 3.32];
@@ -174,9 +156,9 @@ const EAR_WINDOW: [number, number][] = [
   [2.54, 13.7],
 ];
 
+// A left/right pair is a reflection, not a rotation: negate x and rewind so the swept
+// faces stay outward-facing on both sides.
 const mirrorX = (outline: [number, number][]): [number, number][] =>
-  // A left/right pair is a reflection, never a rotation: negate x and rewind so the swept
-  // faces stay outward-facing on both sides.
   outline.map(([x, y]) => [-x, y] as [number, number]).reverse();
 
 const BIB: ExtrudePart = {
@@ -223,25 +205,21 @@ const EAR_INNER_R: ExtrudePart = {
 };
 
 const BODY_BOXES: BoxPart[] = [
-  // The trunk reads as one block but is assembled from three so the front-bottom-centre is a
-  // real recess, not a flat face: a full-width rear mass and an upper "chest" split
-  // left/right so its front-centre is open. The channel they leave — open at the front from
-  // the ground right up to the bib — is the belly pocket, so the white bib and the white
-  // belly meet with no orange showing between them. Every shared face is offset by ~0.1 so
-  // blocks interpenetrate rather than sit coplanar (coplanar orange-on-orange z-fights).
+  // Trunk is split into three so the front-bottom-centre is a real recess, not a flat face: a
+  // full-width rear mass plus a chest split left/right, leaving a channel for the belly panel
+  // and bib to meet with no orange between them. Shared faces are offset ~0.1 to interpenetrate
+  // rather than sit coplanar (which z-fights).
   { id: 'body-rear', material: COAT, size: [6.6, 6.3, 4.0], center: [0, 3.15, 0.4] },
   { id: 'body-neck', material: COAT, size: [4.5, 2.35, 3.45], center: [0, 7.25, 2.85] },
-  { id: 'body-chest-l', material: COAT, size: [2.05, 5.0, 3.3], center: [2.275, 5.1, 3.45] },
-  { id: 'body-chest-r', material: COAT, size: [2.05, 5.0, 3.3], center: [-2.275, 5.1, 3.45] },
-  // White belly fur: fills the channel from the ground up to overlap the bib, but set well
-  // back — its face sits 0.4 behind the chest halves and 0.7 behind the front of the legs,
-  // so the whole underside between the legs is one continuous white front, recessed into a
-  // deep pocket the orange legs and chest frame.
+  // Recessed behind the stationary front legs, which reach z=5.0674 at full inhalation.
+  { id: 'body-chest-l', material: COAT, size: [2.05, 5.0, 3.1], center: [2.275, 5.1, 3.35] },
+  { id: 'body-chest-r', material: COAT, size: [2.05, 5.0, 3.1], center: [-2.275, 5.1, 3.35] },
+  // Fills the belly channel up to the bib, set back behind the chest halves and legs so the
+  // whole underside reads as one continuous white front recessed into the orange frame.
   { id: 'belly-panel', material: BELLY, size: [3.0, 4.8, 2.4], center: [0, 2.4, 2.8] },
-  // The root block overlaps the rump and the first tail link.
+  // Overlaps the rump and the first tail link.
   { id: 'tailbone', material: COAT, size: [1.5, 1.7, 1.5], center: [0, 1.05, -1.8] },
-  // Folded haunches embed into the rump and reach the floor along their full depth.
-  // White toes project forward; there is no unsupported orange shelf behind the paws.
+  // Folded haunches embed into the rump and reach the floor; white toes project forward.
   { id: 'hind-leg-l', material: COAT, size: [2.0, 4.6, 4.5], center: [3.25, 2.3, 0.9] },
   { id: 'hind-leg-r', material: COAT, size: [2.0, 4.6, 4.5], center: [-3.25, 2.3, 0.9] },
   { id: 'hind-paw-l', material: POINT, size: [1.95, 1.5, 2.9], center: [3.5, 0.75, 2.65] },
@@ -254,11 +232,8 @@ const HEAD_BOXES: BoxPart[] = [
   { id: 'nose', material: SKIN, size: [1.1, 0.95, 0.06], center: [0, 8.96, 6.85] },
   { id: 'eye-l', material: EYE, size: [1.3, 1.29, 0.1], center: [1.57, 10.355, 6.03] },
   { id: 'eye-r', material: EYE, size: [1.3, 1.29, 0.1], center: [-1.57, 10.355, 6.03] },
-  // The white glint sits in a DIFFERENT cell of each eye's 2x2 grid — lateral on the cat's
-  // left, medial on its right, so both land on the same world side. Measured in the front
-  // reference, verified in the three-quarter one: it is a stylisation, not a mirroring bug.
-  // Flat cells sit just above the eye's front face (6.08), avoiding depth flicker without
-  // the parallax of a raised block as the head turns.
+  // The glint sits in a different cell of each eye's 2x2 grid so both land on the same world
+  // side — a deliberate stylisation, confirmed against the reference, not a mirroring bug.
   { id: 'eye-cell-upper-lateral', material: WHISKER, size: [0.65, 0.65, 0], center: [1.895, 10.675, 6.081] },
   { id: 'eye-cell-upper-medial', material: WHISKER, size: [0.65, 0.65, 0], center: [-1.245, 10.675, 6.081] },
   { id: 'whisker-l1', material: WHISKER, size: [2.4, 0.28, 0.28], center: [3.1, 8.88, 6.04] },
@@ -295,19 +270,12 @@ const TAIL_BOXES: BoxPart[] = [
 const TAIL_BANDS: readonly (number | null)[] = [-3.225, -5.5, -8.45, null];
 
 /**
- * Stripes are modelled, not painted: a zone is an axis-aligned box in the same world blocks as
- * the part tables above, and at build time it is clipped to the part it marks and laid on that
- * part as a thin plate in the stripe colour. Where the zone set a bound the plate keeps it
- * exactly — those are the measurements taken off the reference; where the part did the
- * clipping the plate is pushed STRIPE_PROUD outwards, so it stands on the surface rather than
- * fighting it for depth, and its skirt covers the chamfered rim instead of leaving a hairline
- * of coat colour along the edge.
- *
- * Geometry rather than a shader buys three things: the boundary is a real edge, so
- * multisampling antialiases it and it stops crawling as the cat moves; every part shares one
- * material instead of each stripe pattern baking its own program; and the marking rides
- * whichever joint the part hangs from without reading the vertex buffers the tail rig rewrites
- * each frame.
+ * Stripes are modelled, not painted: a zone is an axis-aligned box, clipped at build time to
+ * the part it marks and laid on it as a thin plate. Where the part did the clipping the plate
+ * is pushed STRIPE_PROUD outward, so it stands clear of the surface and its skirt covers the
+ * chamfered rim rather than leaving a hairline of coat colour. Geometry rather than a shader
+ * gets a real antialiased edge, one shared material instead of a program per pattern, and a
+ * marking that rides its part's joint without reading the tail rig's per-frame vertex rewrites.
  */
 type StripeZone = { min: [number, number, number]; max: [number, number, number] };
 
@@ -357,15 +325,11 @@ const topBandZ = (top: number, from: number, to: number): StripeZone => ({
 const STRIPE_ROLES: Record<string, PaletteKey> = { tailbone: TAIL_SHADE };
 
 const STRIPES: Record<string, StripeZone[]> = {
-  // Two stripes down the crown, brow to nape, one either side of the midline and running just
-  // inside the ears (whose inner edges stand at |x| = 1.3). They lie ALONG the skull, not
-  // across it: measured off the reference, the stripe pixels share their long axis with the
-  // head's 5-block depth edge, not with its 7-block width edge. Top face only — the reference
-  // leaves the brow and the cheeks clean.
+  // Two crown stripes, brow to nape, just inside the ears. Run ALONG the skull (its 5-block
+  // depth edge), not across it, and top face only — the reference leaves brow and cheeks clean.
   head: [topBandX(12.17, -1.35, -0.5), topBandX(12.17, 0.5, 1.35)],
-  // Rump. The folded haunches stand proud of the flanks and hide most of them, so the two rings
-  // are shared with the thighs at the same heights and read as one stripe running round the
-  // rear; the third crosses the small of the back, which the hero camera looks down on.
+  // Rump. The folded haunches hide most of the flanks, so the two rings are shared with the
+  // thighs and read as one band round the rear; the third crosses the small of the back.
   'body-rear': [yBand(1.2, 2.05), yBand(2.95, 3.8), topBandZ(6.3, -1.05, -0.15)],
   // Rear-outer thigh markings align with the rump rings, clear of the forward white toes.
   'hind-leg-l': [cornerBand(1.2, 2.05, [3.4, OPEN], [-OPEN, 0.6]), cornerBand(2.95, 3.8, [3.4, OPEN], [-OPEN, 0.6])],
@@ -373,32 +337,25 @@ const STRIPES: Record<string, StripeZone[]> = {
     cornerBand(1.2, 2.05, [-OPEN, -3.4], [-OPEN, 0.6]),
     cornerBand(2.95, 3.8, [-OPEN, -3.4], [-OPEN, 0.6]),
   ],
-  // Front legs: two patches each on the outer-front corner, both clear of the white paw. The
-  // reference's near leg measures larger and further apart than this — 1.15 tall, 0.95 between
-  // them, reaching 0.93 and 1.2 blocks along the two faces; these are pulled in by about a
-  // third on every axis and sit closer together, so the pair reads as one marking on a slimmer
-  // leg rather than two belts spanning it. Its FAR leg reads bare on the
-  // front face, so the reference is not strictly symmetric here; mirroring is the deliberate
-  // choice, to match the rest of this model.
+  // Two patches on the outer-front corner, clear of the white paw; pulled in and closer
+  // together than the reference so the pair reads as one marking rather than two belts.
+  // Mirrored on the far leg even though the reference isn't strictly symmetric there.
   'front-leg-l': [cornerBand(2.2, 3.05, [2.7, OPEN], [4.35, OPEN]), cornerBand(3.65, 4.5, [2.7, OPEN], [4.35, OPEN])],
   'front-leg-r': [
     cornerBand(2.2, 3.05, [-OPEN, -2.7], [4.35, OPEN]),
     cornerBand(3.65, 4.5, [-OPEN, -2.7], [4.35, OPEN]),
   ],
-  // The tailbone carries the first band of the tail's alternating run, so it starts at the rump
-  // instead of a link's length behind it. The links themselves are split, not plated: TAIL_BANDS.
+  // Carries the first band of the tail's alternating run, so it starts at the rump. The
+  // links themselves are split, not plated — see TAIL_BANDS.
   tailbone: [zBand(-2.55, -1.9)],
 };
 
 /**
- * A colourpoint is a gradient, not a pattern. On the reference the coat darkens smoothly all
- * the way into the mask, the ears, the feet and the tail, and there is no edge anywhere on the
- * animal — so this coat is not painted with markings at all. Each of these is a place the
- * points take over completely, `full` blocks out from its centre, releasing the coat again by
- * `fade`; the model bakes the strongest of them per vertex in the rest pose and the fur
- * materials mix towards the seal colour by it.
- *
- * The tabby wants none of this and turns the whole thing off, which is what POINT_BLEND does.
+ * A colourpoint is a gradient, not a pattern: the coat darkens smoothly into the mask, ears,
+ * feet and tail with no hard edge anywhere. Each entry is a place the points take over
+ * completely out to `full` blocks from its centre, releasing the coat again by `fade`; the
+ * strongest field per vertex is baked in the rest pose and fur materials mix toward the seal
+ * colour by it. The tabby turns this off entirely via POINT_BLEND.
  */
 const POINT_FIELD = [
   { at: [0, 9.2, 6.4], full: 1.9, fade: 4.2 }, // the mask, measured from the bridge of the nose
@@ -420,11 +377,9 @@ const TAIL_POINT = { full: 0.4, fade: 2.6 };
 const POINT_BLEND: Record<VoxelCatTheme, number> = { light: 0, dark: 1 };
 
 /**
- * The fur the gradient runs through. The bib, whiskers, eyes and nose keep their own colour,
- * and so do the ears: a colourpoint's are solid dark to the base, and a radius wide enough to
- * carry one to its tip also stained a round patch of crown around it. The ear meets the head
- * at a silhouette rather than across a face, so it can take its colour flat without an edge
- * showing anywhere.
+ * The fur the gradient runs through. Bib, whiskers, eyes and nose keep their own colour, and
+ * so do the ears — a colourpoint's are solid dark to the base instead, since a radius wide
+ * enough to reach the tip would also stain the crown around it.
  */
 const GRADIENT_ROLES: PaletteKey[] = [COAT, COAT_SHADE, TAIL, TAIL_SHADE, POINT];
 
@@ -435,20 +390,16 @@ const tailPointness = (at: THREE.Vector3) =>
 export type VoxelCatOptions = {
   /** The coat to build in. Swap it later with `setTheme`; the geometry never changes. */
   theme?: VoxelCatTheme;
-  /** Uniform scale applied to the root group. 1 = one block per world unit. */
-  scale?: number;
-  /**
-   * Edge chamfer in blocks. Clamped per part so it never exceeds 40% of the part's smallest
-   * dimension, which keeps the 0.06-block nose and eye plates from collapsing.
-   */
-  chamfer?: number;
-  castShadow?: boolean;
-  receiveShadow?: boolean;
 };
 
+/**
+ * Edge chamfer in blocks. Clamped per part so it never exceeds 40% of the part's smallest
+ * dimension, which keeps the 0.06-block nose and eye plates from collapsing.
+ */
+const CHAMFER = 0.018;
+
+/** Only the pivots something actually animates. Rest bends live on their groups, unnamed. */
 export type VoxelCatJoints = {
-  /** Whole-body bob. */
-  body: THREE.Group;
   /** Upper chest only; legs and rump stay outside the breathing pivot. */
   chest: THREE.Group;
   eyeL: THREE.Group;
@@ -457,11 +408,7 @@ export type VoxelCatJoints = {
   head: THREE.Group;
   earL: THREE.Group;
   earR: THREE.Group;
-  /** Front-leg swing; origin at the shoulder. The paw is a child, so it follows. */
-  frontLegL: THREE.Group;
-  frontLegR: THREE.Group;
-  /** Four-link tail chain; each link is a child of the previous one. */
-  tail1: THREE.Group;
+  /** The animated part of the tail chain; each link is a child of the previous one. */
   tail2: THREE.Group;
   tail3: THREE.Group;
   tail4: THREE.Group;
@@ -472,7 +419,6 @@ export type VoxelCatModel = {
   joints: VoxelCatJoints;
   /** Every mesh by part id, for explode/highlight/hit-testing. */
   parts: Record<string, THREE.Mesh>;
-  materials: Record<PaletteKey, THREE.MeshStandardMaterial>;
   /**
    * Wear the other coat: repaints every material and shows that coat's markings in place of
    * the other's. No geometry, pose or material identity changes, so nothing recompiles.
@@ -480,13 +426,6 @@ export type VoxelCatModel = {
   setTheme: (theme: VoxelCatTheme) => void;
   dispose: () => void;
 };
-
-/**
- * Studio lighting solved from the reference: the orange coat reads 1.00 on up-faces,
- * 0.87 on front faces and 0.75 on lateral faces. `applyVoxelCatLighting` reproduces those
- * ratios; see the hero component for the matching light rig.
- */
-export const VOXEL_CAT_LIGHT_DIRECTION: readonly [number, number, number] = [0.25, 0.88, 0.4];
 
 /** How each role takes the light. The palette changes with the theme; the finish does not. */
 const FINISH: Record<PaletteKey, number> = {
@@ -521,9 +460,9 @@ function makeMaterials(palette: VoxelCatPalette): Record<PaletteKey, THREE.MeshS
 }
 
 /**
- * Mix the fur towards the point colour by the baked per-vertex field. The gradient is smooth by
- * construction, so unlike a hard marking it needs no antialiasing, and every fur material shares
- * one program: the shape of the coat lives in the attribute, not in the shader source.
+ * Mix the fur towards the point colour by the baked per-vertex field. The gradient is smooth
+ * by construction, so it needs no antialiasing, and every fur material shares one program —
+ * the shape of the coat lives in the attribute, not the shader source.
  */
 function applyPointGradient(
   materials: Record<PaletteKey, THREE.MeshStandardMaterial>,
@@ -540,9 +479,8 @@ function applyPointGradient(
       shader.uniforms.uPointBlend = blend;
       shader.uniforms.uPointAt = at;
       shader.uniforms.uPointRange = range;
-      // The rest position rides along as a varying. It interpolates exactly across a flat
-      // face, which is the whole reason the field is evaluated per fragment: sampled at the
-      // eight corners of a box instead, a 7 x 5 head could not have held a mask at all.
+      // The rest position rides along as a varying, evaluated per fragment: sampled only at
+      // box corners instead, a 7 x 5 head could not have held a mask.
       shader.vertexShader =
         `attribute vec3 aBlock;\nattribute float aPoint;\nvarying vec3 vBlock;\nvarying float vPoint;\n${shader.vertexShader}`.replace(
           '#include <begin_vertex>',
@@ -574,12 +512,14 @@ ${shader.fragmentShader}`.replace(
  * Measure every vertex where its part actually rests — the tail's bends and the torso's squash
  * included — rather than where its table entry put it, and store the field on the geometry.
  */
-function bakePointField(group: THREE.Group, parts: Record<string, THREE.Mesh>) {
+function bakePointField(group: THREE.Group, parts: Record<string, THREE.Mesh>, gradient: ReadonlySet<string>) {
   group.updateMatrixWorld(true);
   const toRoot = new THREE.Matrix4();
   const rootInverse = new THREE.Matrix4().copy(group.matrixWorld).invert();
   const vertex = new THREE.Vector3();
   for (const [id, mesh] of Object.entries(parts)) {
+    // Only the fur shaders declare these attributes; anywhere else they are dead weight.
+    if (!gradient.has(id)) continue;
     const positions = mesh.geometry.getAttribute('position');
     const block = new Float32Array(positions.count * 3);
     const tail = new Float32Array(positions.count);
@@ -595,10 +535,10 @@ function bakePointField(group: THREE.Group, parts: Record<string, THREE.Mesh>) {
   }
 }
 
-function boxGeometry(size: [number, number, number], chamfer: number): THREE.BufferGeometry {
+function boxGeometry(size: [number, number, number]): THREE.BufferGeometry {
   const [w, h, d] = size;
   if (d === 0) return new THREE.PlaneGeometry(w, h);
-  const radius = Math.min(chamfer, Math.min(w, h, d) * 0.4);
+  const radius = Math.min(CHAMFER, Math.min(w, h, d) * 0.4);
   if (radius <= 1e-4) return new THREE.BoxGeometry(w, h, d);
   return new RoundedBoxGeometry(w, h, d, 1, radius);
 }
@@ -618,9 +558,8 @@ type TailSegment = {
 
 /**
  * The pieces of one tail link. A striped link is cut in two at the far edge of its dark band,
- * which leaves each piece exactly one moving end and puts the marking's boundary on a flat
- * internal plane the two halves share — coincident, opposite-facing, and so never in a depth
- * fight with each other.
+ * leaving each piece one moving end, with the marking boundary on a shared internal plane
+ * that never depth-fights itself.
  */
 function tailSegments(link: number): TailSegment[] {
   const part = TAIL_BOXES[link];
@@ -644,12 +583,12 @@ function tailSegments(link: number): TailSegment[] {
 
 /** Miter the resting tail bends so adjacent top faces meet without gaps or overlaps. */
 function tailGeometry(segment: TailSegment, size: readonly [number, number, number], centerZ: number) {
-  // Separate face vertices retain flat normals. No bevel at the internal seams: rounding
-  // both ends would reintroduce a groove, and overlapping top faces would z-fight.
+  // No bevel at internal seams: rounding both ends would reintroduce a groove, and overlapping
+  // top faces would z-fight.
   const geometry = new THREE.BoxGeometry(size[0], size[1], segment.start - segment.end);
   const positions = geometry.getAttribute('position');
-  // Lever arm of the mitred face and zero everywhere else: all the rig needs to sweep that one
-  // face with its joint, leaving the band's internal plane exactly where it was built.
+  // Lever arm of the mitred face, zero elsewhere, so the rig can sweep just that face with
+  // its joint and leave the band's internal plane where it was built.
   const mitre = new Float32Array(positions.count);
   for (let i = 0; i < positions.count; i++) {
     const isStart = positions.getZ(i) > 0;
@@ -660,16 +599,15 @@ function tailGeometry(segment: TailSegment, size: readonly [number, number, numb
   }
   geometry.userData.tailMitre = mitre;
   geometry.computeVertexNormals();
-  geometry.computeBoundingBox();
-  geometry.computeBoundingSphere();
+  // No bounding volumes: the rig rewrites these vertices every frame, so anything cached here
+  // would only ever be wrong. Tail meshes opt out of frustum culling for the same reason.
   return geometry;
 }
 
-function extrudeGeometry(part: ExtrudePart, chamfer: number): THREE.BufferGeometry {
+function extrudeGeometry(part: ExtrudePart): THREE.BufferGeometry {
   const span = part.to - part.from;
-  // ExtrudeGeometry's bevel grows the sweep by bevelThickness at each end, and
   // bevelOffset = -bevelSize keeps the outline itself at its authored dimensions.
-  const radius = Math.min(chamfer, span * 0.4);
+  const radius = Math.min(CHAMFER, span * 0.4);
   const shape = new THREE.Shape();
   shape.moveTo(part.outline[0][0], part.outline[0][1]);
   for (const [x, y] of part.outline.slice(1)) shape.lineTo(x, y);
@@ -690,18 +628,15 @@ function extrudeGeometry(part: ExtrudePart, chamfer: number): THREE.BufferGeomet
     bevelOffset: -radius,
     bevelThickness: radius,
   });
-  // The shape is authored in world coordinates, so only the swept axis needs placing: the
-  // geometry currently runs from -radius to span - radius along local +Z.
+  // Only the swept axis needs placing; the geometry currently runs from -radius to
+  // span - radius along local +Z.
   geometry.translate(0, 0, part.from + radius);
-  if (part.axis === 'x') {
-    // Outline is (z, y); rotate the sweep onto +X and swing the outline plane to match.
-    geometry.rotateY(Math.PI / 2);
-  }
+  if (part.axis === 'x') geometry.rotateY(Math.PI / 2);
   return geometry;
 }
 
 export function createVoxelCatModel(options: VoxelCatOptions = {}): VoxelCatModel {
-  const { theme = 'light', scale = 1, chamfer = 0.018, castShadow = true, receiveShadow = true } = options;
+  const { theme = 'light' } = options;
   const materials = makeMaterials(VOXEL_CAT_PALETTES[theme]);
   const pointColor = { value: new THREE.Color() };
   const pointBlend = { value: 0 };
@@ -710,6 +645,8 @@ export function createVoxelCatModel(options: VoxelCatOptions = {}): VoxelCatMode
   const stripes: THREE.Mesh[] = [];
   const parts: Record<string, THREE.Mesh> = {};
   const geometries: THREE.BufferGeometry[] = [];
+  /** Ids whose material runs the point gradient, and so need the baked field attributes. */
+  const gradient = new Set<string>();
 
   /** `at` and `parentAt` are both world-space, so the table above stays readable. */
   const joint = (
@@ -736,12 +673,11 @@ export function createVoxelCatModel(options: VoxelCatOptions = {}): VoxelCatMode
     geometries.push(geometry);
     const mesh = new THREE.Mesh(geometry, materials[material]);
     mesh.name = id;
-    // `center` is the world anchor the geometry was built around; rebase it onto the pivot
-    // this part hangs from.
+    // Rebase the world-anchored `center` onto the pivot this part hangs from.
     mesh.position.set(center[0] - origin[0], center[1] - origin[1], center[2] - origin[2]);
-    mesh.castShadow = castShadow;
-    mesh.receiveShadow = receiveShadow;
-    mesh.userData.partId = id;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    if (GRADIENT_ROLES.includes(material)) gradient.add(id);
     parent.add(mesh);
     parts[id] = mesh;
     return mesh;
@@ -767,14 +703,14 @@ export function createVoxelCatModel(options: VoxelCatOptions = {}): VoxelCatMode
       center[axis] = (min + max) / 2;
     }
     const role = STRIPE_ROLES[part.id] ?? COAT_SHADE;
-    const mesh = addMesh(boxGeometry(size, chamfer), `${part.id}-stripe-${index}`, role, parent, origin, center);
+    const mesh = addMesh(boxGeometry(size), `${part.id}-stripe-${index}`, role, parent, origin, center);
     // The block underneath already casts this silhouette; a second caster only risks acne.
     mesh.castShadow = false;
     stripes.push(mesh);
   };
 
   const addBox = (part: BoxPart, parent: THREE.Object3D, origin: readonly [number, number, number]) => {
-    const mesh = addMesh(boxGeometry(part.size, chamfer), part.id, part.material, parent, origin, part.center);
+    const mesh = addMesh(boxGeometry(part.size), part.id, part.material, parent, origin, part.center);
     // Flat markings share the supporting block's silhouette and should not cast a raised edge.
     if (part.size[2] === 0) mesh.castShadow = false;
     STRIPES[part.id]?.forEach((zone, index) => addStripe(part, zone, index, parent, origin));
@@ -785,14 +721,16 @@ export function createVoxelCatModel(options: VoxelCatOptions = {}): VoxelCatMode
     const { size, center: authored } = TAIL_BOXES[link];
     for (const segment of tailSegments(link)) {
       const center: [number, number, number] = [0, authored[1], (segment.start + segment.end) / 2];
-      addMesh(tailGeometry(segment, size, center[2]), segment.id, segment.material, parent, origin, center);
+      const mesh = addMesh(tailGeometry(segment, size, center[2]), segment.id, segment.material, parent, origin, center);
+      // The rig sweeps the mitred faces every frame, so no cached bound stays true; the tail
+      // is always on screen with the rest of the cat anyway.
+      mesh.frustumCulled = false;
     }
   };
 
   const addExtrude = (part: ExtrudePart, parent: THREE.Object3D, origin: readonly [number, number, number]) => {
-    // The outline is already in world coordinates, so the geometry carries the placement and
-    // the mesh sits at the joint origin.
-    const geometry = extrudeGeometry(part, chamfer);
+    // Outline is already in world coordinates, so the geometry carries the placement.
+    const geometry = extrudeGeometry(part);
     geometry.translate(-origin[0], -origin[1], -origin[2]);
     return addMesh(geometry, part.id, part.material, parent, origin, origin);
   };
@@ -808,11 +746,10 @@ export function createVoxelCatModel(options: VoxelCatOptions = {}): VoxelCatMode
 
   const group = new THREE.Group();
   group.name = 'voxel-cat';
-  group.scale.setScalar(scale);
 
   const body = joint('voxel-cat-body', BODY_JOINT, group, BODY_JOINT);
-  // Narrow the torso and limbs together, keeping their joints and markings aligned.
-  // The head and tail retain their own proportions outside this scaled group.
+  // Narrows torso and limbs together, keeping joints and markings aligned; head and tail
+  // keep their own proportions outside this scaled group.
   const torso = joint('voxel-cat-torso', BODY_JOINT, body, BODY_JOINT);
   torso.scale.set(0.9, 1, 0.95);
   const chestAt: [number, number, number] = [0, 6.1, 1.8];
@@ -848,34 +785,29 @@ export function createVoxelCatModel(options: VoxelCatOptions = {}): VoxelCatMode
   const frontLegR = joint('voxel-cat-front-leg-r', LEG_JOINT_R, torso, BODY_JOINT);
   for (const part of LEG_BOXES_R) addBox(part, frontLegR, LEG_JOINT_R);
 
-  // The chain is authored straight; TAIL_YAW lays it beside the cat's left haunch. Each
-  // link's rest yaw is stored so an idle animation can sway around it.
+  // The chain is authored straight; TAIL_YAW lays it beside the cat's left haunch, and the rig
+  // reads each link's rest rotation back off its group to sway around it.
   const tail1 = joint('voxel-cat-tail-1', TAIL_JOINT_1, body, BODY_JOINT);
   tail1.rotation.y = TAIL_YAW[0];
-  tail1.userData.restYaw = TAIL_YAW[0];
   addTail(0, tail1, TAIL_JOINT_1);
   const tail2 = joint('voxel-cat-tail-2', TAIL_JOINT_2, tail1, TAIL_JOINT_1);
   tail2.rotation.y = TAIL_YAW[1];
-  tail2.userData.restYaw = TAIL_YAW[1];
   addTail(1, tail2, TAIL_JOINT_2);
   const tail3 = joint('voxel-cat-tail-3', TAIL_JOINT_3, tail2, TAIL_JOINT_2);
   tail3.rotation.y = TAIL_YAW[2];
-  tail3.userData.restYaw = TAIL_YAW[2];
   addTail(2, tail3, TAIL_JOINT_3);
   const tail4 = joint('voxel-cat-tail-4', TAIL_JOINT_4, tail3, TAIL_JOINT_3);
   tail4.rotation.y = TAIL_YAW[3];
-  tail4.userData.restYaw = TAIL_YAW[3];
   addTail(3, tail4, TAIL_JOINT_4);
 
-  bakePointField(group, parts);
+  bakePointField(group, parts, gradient);
   // The materials already hold the right colours; this is what sets the gradient and the plates.
   setTheme(theme);
 
   return {
     group,
-    joints: { body, chest, eyeL, eyeR, head, earL, earR, frontLegL, frontLegR, tail1, tail2, tail3, tail4 },
+    joints: { chest, eyeL, eyeR, head, earL, earR, tail2, tail3, tail4 },
     parts,
-    materials,
     setTheme,
     dispose: () => {
       for (const geometry of geometries) geometry.dispose();
