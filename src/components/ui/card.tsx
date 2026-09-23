@@ -11,7 +11,7 @@ export function Card<T extends ElementType = 'div'>({ as, className, ...props }:
 
   return createElement(Component, {
     className: cn(
-      'dark:border-border bg-card shadow-brutalist-md rounded-xl border border-black p-5 sm:p-8',
+      'dark:border-card-border bg-card shadow-brutalist-md rounded-xl border border-black p-5 sm:p-8',
       className,
     ),
     ...props,

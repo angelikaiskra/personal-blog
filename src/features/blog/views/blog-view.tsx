@@ -10,6 +10,9 @@ import { Text } from '@/components/ui/text';
 import { postCategories, type PostCategoryKey } from '@/config/categories';
 import { cn } from '@/lib/utils';
 
+const selectedBadgeClasses =
+  'bg-primary text-primary-fg hover:bg-primary-hover dark:bg-primary dark:hover:bg-primary-hover';
+
 interface BlogViewProps {
   selectedCategory?: PostCategoryKey;
 }
@@ -35,7 +38,7 @@ export function BlogView({ selectedCategory }: BlogViewProps) {
         <div className="mt-6 flex flex-wrap gap-3 sm:mt-8">
           <Badge
             as={Link}
-            className={cn('px-4', !selectedCategory && 'bg-primary hover:bg-primary-hover')}
+            className={cn('px-4', !selectedCategory && selectedBadgeClasses)}
             href="/blog"
             aria-current={!selectedCategory ? 'page' : undefined}
           >
@@ -48,7 +51,7 @@ export function BlogView({ selectedCategory }: BlogViewProps) {
               <Badge
                 key={category.key}
                 as={Link}
-                className={cn('px-4', isSelected && 'bg-primary hover:bg-primary-hover')}
+                className={cn('px-4', isSelected && selectedBadgeClasses)}
                 href={`/category/${category.key}`}
                 aria-current={isSelected ? 'page' : undefined}
               >

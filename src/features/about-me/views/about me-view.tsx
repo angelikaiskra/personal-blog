@@ -28,7 +28,7 @@ export function AboutMeView() {
               Leoś.
             </Text>
           </div>
-          <div className="flex justify-end max-sm:mt-6">
+          <div className="flex max-md:mt-8 max-md:w-full max-sm:mt-6 min-[640px]:justify-center md:justify-end">
             <Image src="/about-me-hero.png" width={280} height={280} alt="Image of Angela smiling to the camera?" />
           </div>
         </div>

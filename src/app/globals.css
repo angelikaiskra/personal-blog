@@ -24,7 +24,6 @@
   --code-bg: oklch(0.97 0 0);
   --max-width: 68.75rem;
 
-  /* Halo behind the hero cat. The accent is warm, which is what the orange tabby wants. */
   --cat-halo: oklch(0.8203 0.1449 79.11);
 
   --shadow-brutalist-sm: 1px 2px 0 0 oklch(0 0 0);
@@ -46,9 +45,9 @@
   --accent: oklch(0.8203 0.1449 79.11);
   --accent-fg: oklch(0.98 0 0);
   --link-accent: oklch(0.7206 0.1353 225.97);
-  --card: #0f0d0e;
+  --card: oklch(27.186% 0.00445 17.05);
   --card-border: #6f6265;
-  --surface: #0f0d0e;
+  --surface: #363133;
   --code-bg: oklch(0.97 0 0);
   --max-width: 68.75rem;
 
