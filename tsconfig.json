@@ -20,6 +20,7 @@
     ],
     "paths": {
       "@/*": ["./src/*"],
+      "@content/*": ["./content/*"],
       "content-collections": ["./.content-collections/generated/index.d.ts"]
     }
   },
