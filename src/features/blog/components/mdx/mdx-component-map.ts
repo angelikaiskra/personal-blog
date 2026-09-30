@@ -1,11 +1,13 @@
 import type { MDXRemoteProps } from 'next-mdx-remote/rsc';
 
+import { linkedHeadingComponents } from './components/linked-heading';
 import { PostImage } from './components/post-image';
 import { Separator } from './components/separator';
 import { Strike, Wave } from './components/text-effects';
 import { Tip } from './components/tip';
 
 export const mdxComponents = {
+  ...linkedHeadingComponents,
   PostImage,
   Separator,
   Strike,
