@@ -1,5 +1,6 @@
 import type { MDXRemoteProps } from 'next-mdx-remote/rsc';
 
+import { CodeBlock } from './code/code-block';
 import { linkedHeadingComponents } from './components/linked-heading';
 import { Link } from './components/link';
 import { PostImage } from './components/post-image';
@@ -10,6 +11,7 @@ import { Tip } from './components/tip';
 export const mdxComponents = {
   ...linkedHeadingComponents,
   a: Link,
+  pre: CodeBlock,
   PostImage,
   Separator,
   Strike,
