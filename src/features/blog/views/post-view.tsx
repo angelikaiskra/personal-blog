@@ -3,9 +3,8 @@ import type { Post } from 'content-collections';
 
 import { Heading } from '@/components/ui/heading';
 import { MaxWidthContainer } from '@/components/ui/max-width-container';
-import { MdxContent } from '@/features/blog/components/mdx-content';
+import { compileMdxContent } from '@/features/blog/components/mdx-content';
 import { TableOfContents } from '@/features/blog/components/table-of-contents';
-import { getTableOfContents } from '@/features/blog/lib/get-table-of-contents';
 import { cn } from '@/lib/utils';
 
 type PostViewProps = {
@@ -13,13 +12,13 @@ type PostViewProps = {
 };
 
 export async function PostView({ post }: PostViewProps) {
-  const tableOfContents = getTableOfContents(post.content);
+  const { content, tableOfContents } = await compileMdxContent(post.content);
   const showTableOfContents = post.showTableOfContents && tableOfContents.length > 0;
 
   return (
     <MaxWidthContainer className="mt-15 pb-20 sm:mt-20">
       <div className={cn('flex justify-center gap-x-16', { 'lg:justify-between': showTableOfContents })}>
-        <main className="max-w-2xl">
+        <main className="max-w-2xl min-w-0 flex-1">
           <header>
             <Heading as="h1" variant="h1" className="leading-tight">
               {post.title}
@@ -32,7 +31,7 @@ export async function PostView({ post }: PostViewProps) {
             </div>
           </header>
 
-          <MdxContent source={post.content} />
+          {content}
         </main>
 
         {showTableOfContents && <TableOfContents items={tableOfContents} />}

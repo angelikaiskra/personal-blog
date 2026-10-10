@@ -5,30 +5,7 @@ import { useEffect, useRef, useState, type ComponentPropsWithoutRef, type RefObj
 import { ClipboardIcon } from '@/components/icons/clipboard-icon';
 import { cn } from '@/lib/utils';
 
-const focusStyles = 'focus-visible:outline-link-accent focus-visible:outline-2 focus-visible:-outline-offset-3';
-
-const codeBlockStyles = {
-  container: cn(
-    'not-prose border-border relative min-w-0 overflow-hidden rounded-xl border dark:border-card-border',
-    '[--code-padding:1rem] sm:[--code-padding:1.25rem]',
-    '[[data-rehype-pretty-code-title]+&]:rounded-t-none',
-  ),
-  pre: cn(
-    'bg-code-bg font-code m-0 overflow-x-auto py-(--code-padding) text-[15px] leading-[1.65] [tab-size:2]',
-    'text-[color:var(--shiki-light,var(--foreground))] dark:text-[color:var(--shiki-dark,var(--foreground))]',
-    '[&_span]:text-[color:var(--shiki-light)] dark:[&_span]:text-[color:var(--shiki-dark,var(--foreground))]',
-    '[&_code]:grid [&_code]:w-max [&_code]:min-w-full [&_code]:whitespace-pre [&_code]:[font:inherit]',
-    '[&_[data-line]]:min-h-[1lh] [&_[data-line]]:px-(--code-padding)',
-    focusStyles,
-  ),
-  copyButton: cn(
-    'border-border bg-background text-muted-fg absolute top-1.5 right-2 inline-flex min-h-8 min-w-8 cursor-pointer items-center justify-center rounded-md border p-1.5',
-    'hover:bg-muted hover:text-foreground',
-    focusStyles,
-  ),
-  copyIcon: 'size-4',
-  copiedIcon: 'text-green-600 dark:text-green-400',
-};
+import './code-block.css';
 
 type CopyStatus = 'idle' | 'copied' | 'error';
 
@@ -45,10 +22,10 @@ export function CodeBlock({ children, className, tabIndex = 0, ...props }: Compo
   const preRef = useRef<HTMLPreElement>(null);
 
   return (
-    <div data-code-block className={codeBlockStyles.container}>
+    <div data-code-block className="not-prose code-block">
       <CopyCodeButton preRef={preRef} />
 
-      <pre ref={preRef} className={cn(codeBlockStyles.pre, className)} tabIndex={tabIndex} {...props}>
+      <pre ref={preRef} className={cn('code-block-pre', className)} tabIndex={tabIndex} {...props}>
         {children}
       </pre>
     </div>
@@ -86,18 +63,15 @@ function CopyCodeButton({ preRef }: { preRef: RefObject<HTMLPreElement | null> }
     <>
       <button
         type="button"
-        className={codeBlockStyles.copyButton}
+        className="code-block-copy-button"
         onClick={copyCode}
         aria-label="Copy code"
         title={feedback.title}
         data-copy-status={status}
       >
-        <ClipboardIcon
-          checked={status === 'copied'}
-          className={cn(codeBlockStyles.copyIcon, status === 'copied' && codeBlockStyles.copiedIcon)}
-        />
+        <ClipboardIcon checked={status === 'copied'} className="code-block-copy-icon" />
       </button>
-      <span className="sr-only" role="status">
+      <span className="code-block-announcement" role="status">
         {feedback.announcement}
       </span>
     </>
