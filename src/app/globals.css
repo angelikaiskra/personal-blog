@@ -12,17 +12,17 @@
   --border: oklch(0.9276 0.0058 264.53);
   --primary: oklch(0.8203 0.1449 79.11);
   --primary-fg: oklch(0.235 0 0);
-  --primary-hover: #e9a529;
-  --secondary: #2a3151;
+  --primary-hover: oklch(0.76846 0.15006 76.6042);
+  --secondary: oklch(0.322687 0.057817 273.384);
   --secondary-fg: oklch(1 0 0);
   --accent: oklch(0.8203 0.1449 79.11);
   --accent-fg: oklch(0.98 0 0);
-  --link-accent: #4096ff;
+  --link-accent: oklch(0.672557 0.176033 255.3021);
   --card: oklch(1 0 0);
   --card-border: oklch(0.9 0 0);
   --surface: oklch(0.9881 0 0);
-  --code-bg: oklch(0.97 0 0);
-  --inline-code-bg: #b3deff33;
+  --code-bg: oklch(0.934025 0 0 / 0.09019608);
+  --inline-code-bg: oklch(0.8884 0 0);
   --max-width: 68.75rem;
 
   --cat-halo: oklch(0.8203 0.1449 79.11);
@@ -32,27 +32,28 @@
 }
 
 .dark {
-  --background: #0f0d0e;
-  --foreground: #f5f0e6;
+  --background: oklch(0.161984 0.003935 345.7672);
+  --foreground: oklch(0.956283 0.014327 84.5834);
   --muted: oklch(0.17 0 0);
   --muted-hover: oklch(0.3328 0.0101 7.84);
-  --muted-fg: #958387;
-  --border: #3b3435;
+  --muted-fg: oklch(0.627503 0.022602 2.6753);
+  --border: oklch(0.332755 0.010091 7.8382);
   --primary: oklch(0.8203 0.1449 79.11);
   --primary-fg: oklch(0.235 0 0);
-  --primary-hover: #e9a529;
-  --secondary: #2a3151;
+  --primary-hover: oklch(0.76846 0.15006 76.6042);
+  --secondary: oklch(0.322687 0.057817 273.384);
   --secondary-fg: oklch(1 0 0);
   --accent: oklch(0.8203 0.1449 79.11);
   --accent-fg: oklch(0.98 0 0);
   --link-accent: oklch(0.7206 0.1353 225.97);
-  --card: oklch(27.186% 0.00445 17.05);
-  --card-border: #6f6265;
-  --surface: #363133;
-  --code-bg: oklch(0.97 0 0);
+  --card: oklch(0.24419 0.00638 0.593624);
+  --card-border: oklch(0.509473 0.017219 2.0552);
+  --surface: oklch(0.319149 0.007903 351.3131);
+  --code-bg: oklch(0.24419 0.00638 0.593624);
+  --inline-code-bg: oklch(0.3328 0.0101 7.84);
   --max-width: 68.75rem;
 
-  --cat-halo: oklch(0.9245 0.0594 52.49)
+  --cat-halo: oklch(0.9245 0.0594 52.49);
 }
 
 @theme inline {
@@ -83,6 +84,7 @@
   --font-heading: var(--font-montserrat);
   --font-sans: var(--font-outfit);
   --font-mono: var(--font-jetbrains);
+  --font-code: var(--font-fira-code);
 }
 
 body {

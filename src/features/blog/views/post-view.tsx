@@ -3,7 +3,7 @@ import type { Post } from 'content-collections';
 
 import { Heading } from '@/components/ui/heading';
 import { MaxWidthContainer } from '@/components/ui/max-width-container';
-import { MdxContent } from '@/features/blog/components/mdx/mdx-content';
+import { MdxContent } from '@/features/blog/components/mdx-content';
 import { TableOfContents } from '@/features/blog/components/table-of-contents';
 import { getTableOfContents } from '@/features/blog/lib/get-table-of-contents';
 import { cn } from '@/lib/utils';

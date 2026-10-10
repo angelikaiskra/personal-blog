@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Outfit, Montserrat, JetBrains_Mono } from 'next/font/google';
+import { Outfit, Montserrat, Fira_Code } from 'next/font/google';
 import { ThemeProvider } from 'next-themes';
 
 import { MotionProvider } from '@/components/providers/motion-provider';
@@ -18,8 +18,8 @@ const montserratMono = Montserrat({
   display: 'swap',
 });
 
-const jetbrainsMono = JetBrains_Mono({
-  variable: '--font-jetbrains',
+const firaCode = Fira_Code({
+  variable: '--font-fira-code',
   subsets: ['latin'],
   display: 'swap',
 });
@@ -39,7 +39,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <MotionProvider>
       <html lang="en" suppressHydrationWarning>
-        <body className={`${outfit.variable} ${montserratMono.variable} ${jetbrainsMono.variable} antialiased`}>
+        <body className={`${outfit.variable} ${montserratMono.variable} ${firaCode.variable} antialiased`}>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
             {children}
           </ThemeProvider>
