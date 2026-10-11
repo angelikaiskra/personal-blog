@@ -33,6 +33,9 @@ export const metadata: Metadata = {
   authors: [{ name: 'Angela Iskra' }],
   creator: 'Angela Iskra',
   metadataBase: new URL('https://angelaiskra.com'),
+  alternates: {
+    types: { 'application/rss+xml': '/rss.xml' },
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

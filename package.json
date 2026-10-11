@@ -35,6 +35,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
+    "feed": "^6.0.0",
     "motion": "^12.40.0",
     "next": "16.2.6",
     "next-mdx-remote": "^6.0.0",

@@ -40,7 +40,7 @@ export const socialLinks = [
     external: false,
   },
   {
-    href: '/feed.xml',
+    href: '/rss.xml',
     label: 'RSS',
     icon: RssIcon,
     external: false,
