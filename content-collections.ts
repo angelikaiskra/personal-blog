@@ -9,6 +9,9 @@ const posts = defineCollection({
   include: '**/*.mdx',
   schema: z.object({
     title: z.string(),
+    slug: z
+      .string()
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Use lowercase letters, numbers, and single hyphens for the slug'),
     excerpt: z.string(),
     created: z.string(),
     lastUpdated: z.string(),

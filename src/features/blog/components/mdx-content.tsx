@@ -18,10 +18,13 @@ const mdxContentStyles = cn(
   'prose-headings:font-heading prose-headings:tracking-tight',
   'prose-h2:mt-16 prose-h2:mb-8 prose-h2:text-[24px] prose-h2:font-bold prose-h2:leading-[1.15]',
   'prose-h3:mt-12 prose-h3:mb-4 prose-h3:text-[20px] prose-h3:leading-normal',
-  'prose-h4:mt-12 prose-h4:mb-2 prose-h4:text-[20px] prose-h4:leading-[calc(1.75/1.125)]',
+  'prose-h4:mt-12 prose-h4:mb-4 prose-h4:text-[18px] prose-h4:font-semibold prose-h4:leading-normal',
 
   // Paragraphs
   'prose-p:my-6 prose-p:[&:is(h2+p,h3+p,h4+p)]:mt-0',
+
+  // Numbered lists
+  'dark:[--tw-prose-counters:var(--muted-fg)]',
 
   // Links
   'prose-a:decoration-link-accent prose-a:decoration-2 prose-a:underline-offset-2',

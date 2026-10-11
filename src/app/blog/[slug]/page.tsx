@@ -7,12 +7,12 @@ interface Props {
 }
 
 export async function generateStaticParams() {
-  return allPosts.filter((p) => p.published).map((p) => ({ slug: p._meta.path }));
+  return allPosts.filter((p) => p.published).map((p) => ({ slug: p.slug }));
 }
 
 export default async function BlogPostPage({ params }: Props) {
   const { slug } = await params;
-  const post = allPosts.find((p) => p._meta.path === slug && p.published);
+  const post = allPosts.find((p) => p.slug === slug && p.published);
 
   if (!post) notFound();
 

@@ -53,11 +53,11 @@ export function HomeView() {
 
           <ul className="divide-border mt-6 divide-y sm:mt-8">
             {recentPosts.map((post) => (
-              <li key={post._meta.path} className="py-8 first:pt-0">
+              <li key={post.slug} className="py-8 first:pt-0">
                 <article className="max-w-3xl">
                   <Heading as="h3" variant="h3" className="mb-2 font-bold">
                     <Link
-                      href={`/blog/${post._meta.path}`}
+                      href={`/blog/${post.slug}`}
                       className="decoration-link-accent decoration-2 underline-offset-2 hover:underline focus-visible:underline"
                     >
                       {post.title}
@@ -70,11 +70,11 @@ export function HomeView() {
                     <span>{post.readingTime}</span>
                   </div>
 
-                  <Text as={Link} href={`/blog/${post._meta.path}`} variant="body" className="mt-4 block max-w-170">
+                  <Text as={Link} href={`/blog/${post.slug}`} variant="body" className="mt-4 block max-w-170">
                     {post.excerpt}
                   </Text>
 
-                  <AnimatedLink href={`/blog/${post._meta.path}`} hoverAnimation="arrowSlide" className="mt-5">
+                  <AnimatedLink href={`/blog/${post.slug}`} hoverAnimation="arrowSlide" className="mt-5">
                     Read more
                   </AnimatedLink>
                 </article>

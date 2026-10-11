@@ -4,6 +4,7 @@ import type { Post } from 'content-collections';
 import { Heading } from '@/components/ui/heading';
 import { MaxWidthContainer } from '@/components/ui/max-width-container';
 import { compileMdxContent } from '@/features/blog/components/mdx-content';
+import { PostComments } from '@/features/blog/components/post-comments';
 import { TableOfContents } from '@/features/blog/components/table-of-contents';
 import { cn } from '@/lib/utils';
 
@@ -32,6 +33,10 @@ export async function PostView({ post }: PostViewProps) {
           </header>
 
           {content}
+
+          <section aria-labelledby="comments-heading" className="border-border mt-16 border-t pt-8">
+            <PostComments slug={post.slug} />
+          </section>
         </main>
 
         {showTableOfContents && <TableOfContents items={tableOfContents} />}

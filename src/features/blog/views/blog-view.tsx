@@ -65,11 +65,11 @@ export function BlogView({ selectedCategory }: BlogViewProps) {
       {posts.length > 0 ? (
         <ul className="mt-8 grid gap-8 sm:mt-16 md:grid-cols-2">
           {posts.map((post) => (
-            <li key={post._meta.path}>
+            <li key={post.slug}>
               <Card as="article">
                 <Heading as="h2" variant="h3" className="font-bold">
                   <Link
-                    href={`/blog/${post._meta.path}`}
+                    href={`/blog/${post.slug}`}
                     className="decoration-link-accent decoration-2 underline-offset-2 hover:underline focus-visible:underline"
                   >
                     {post.title}
@@ -82,11 +82,11 @@ export function BlogView({ selectedCategory }: BlogViewProps) {
                   <span>{post.readingTime}</span>
                 </div>
 
-                <Text as={Link} href={`/blog/${post._meta.path}`} variant="body" className="mt-4 block">
+                <Text as={Link} href={`/blog/${post.slug}`} variant="body" className="mt-4 block">
                   {post.excerpt}
                 </Text>
 
-                <AnimatedLink href={`/blog/${post._meta.path}`} hoverAnimation="arrowSlide" className="mt-6">
+                <AnimatedLink href={`/blog/${post.slug}`} hoverAnimation="arrowSlide" className="mt-6">
                   Read more
                 </AnimatedLink>
               </Card>
