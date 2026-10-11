@@ -3,6 +3,7 @@ import { Outfit, Montserrat, Fira_Code } from 'next/font/google';
 import { ThemeProvider } from 'next-themes';
 
 import { MotionProvider } from '@/components/providers/motion-provider';
+import { siteConfig } from '@/config/site';
 
 import './globals.css';
 
@@ -26,13 +27,13 @@ const firaCode = Fira_Code({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Angela Iskra',
-    template: '%s | Angela Iskra',
+    default: siteConfig.name,
+    template: `%s • ${siteConfig.name}`,
   },
-  description: 'Blog about React, TypeScript and frontend development.',
-  authors: [{ name: 'Angela Iskra' }],
-  creator: 'Angela Iskra',
-  metadataBase: new URL('https://angelaiskra.com'),
+  description: siteConfig.description,
+  authors: [{ name: siteConfig.author, url: new URL('/about', siteConfig.url).href }],
+  creator: siteConfig.author,
+  metadataBase: new URL(siteConfig.url),
   alternates: {
     types: { 'application/rss+xml': '/rss.xml' },
   },

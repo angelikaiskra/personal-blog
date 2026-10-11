@@ -32,7 +32,7 @@ export function HomeView() {
               <SparklesIcon className="absolute -top-4 -left-14 size-7 rotate-30 text-accent sm:hidden" />
             </div>
             <Text as="p">
-              <span className="sm:block">Frontend Developer crafting web experiences with React and TypeScript. </span>I
+              <span className="sm:block">Frontend developer crafting web experiences with React and TypeScript. </span>I
               love technology and I&apos;m fascinated by how things work. This blog is where I share what I&apos;m
               currently exploring, building and figuring out.
             </Text>

@@ -34,7 +34,7 @@ export async function PostView({ post }: PostViewProps) {
 
           {content}
 
-          <section aria-labelledby="comments-heading" className="mt-16 border-t border-border pt-8">
+          <section aria-labelledby="comments-heading" className="mt-16 border-t-2 border-border pt-8">
             <PostComments slug={post.slug} />
           </section>
         </main>
