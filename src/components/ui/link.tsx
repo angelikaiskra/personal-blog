@@ -11,7 +11,7 @@ type LinkProps = NextLinkProps &
 
 export function Link({ children, className, ...props }: LinkProps) {
   return (
-    <NextLink className={cn('text-foreground inline-flex text-[16px] leading-none font-medium', className)} {...props}>
+    <NextLink className={cn('inline-flex text-[16px] leading-none font-medium text-foreground', className)} {...props}>
       {children}
     </NextLink>
   );

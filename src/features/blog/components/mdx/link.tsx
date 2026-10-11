@@ -20,7 +20,7 @@ export function Link({ href, children, target, rel, style, ...props }: LinkProps
         <>
           <span className="sr-only"> (opens in a new tab)</span>
           &nbsp;
-          <span className="after:bg-link-accent relative inline-block size-[0.65em] align-baseline after:absolute after:inset-x-0 after:top-[calc(100%+0.11em)] after:h-[0.11em]">
+          <span className="relative inline-block size-[0.65em] align-baseline after:absolute after:inset-x-0 after:top-[calc(100%+0.11em)] after:h-[0.11em] after:bg-link-accent">
             <ExternalLinkIcon className="size-full" />
           </span>
         </>

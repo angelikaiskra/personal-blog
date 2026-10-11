@@ -76,9 +76,9 @@ export function BlogView({ selectedCategory }: BlogViewProps) {
                   </Link>
                 </Heading>
 
-                <div className="text-muted-fg mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-fg">
                   <time dateTime={post.lastUpdated}>{format(parseISO(post.lastUpdated), 'MMMM do, yyyy')}</time>
-                  <span className="bg-foreground size-1 rounded-full" aria-hidden="true" />
+                  <span className="size-1 rounded-full bg-foreground" aria-hidden="true" />
                   <span>{post.readingTime}</span>
                 </div>
 

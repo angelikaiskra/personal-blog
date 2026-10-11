@@ -721,7 +721,14 @@ export function createVoxelCatModel(options: VoxelCatOptions = {}): VoxelCatMode
     const { size, center: authored } = TAIL_BOXES[link];
     for (const segment of tailSegments(link)) {
       const center: [number, number, number] = [0, authored[1], (segment.start + segment.end) / 2];
-      const mesh = addMesh(tailGeometry(segment, size, center[2]), segment.id, segment.material, parent, origin, center);
+      const mesh = addMesh(
+        tailGeometry(segment, size, center[2]),
+        segment.id,
+        segment.material,
+        parent,
+        origin,
+        center,
+      );
       // The rig sweeps the mitred faces every frame, so no cached bound stays true; the tail
       // is always on screen with the rest of the cat anyway.
       mesh.frustumCulled = false;

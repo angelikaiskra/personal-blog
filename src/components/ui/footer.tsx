@@ -14,7 +14,7 @@ export function Footer() {
           as="a"
           href={link.href}
           variant="base"
-          className="hover:text-foreground transition-colors max-sm:underline max-sm:underline-offset-2"
+          className="transition-colors hover:text-foreground max-sm:underline max-sm:underline-offset-2"
         >
           {link.label}
         </Text>
@@ -23,7 +23,7 @@ export function Footer() {
   ));
 
   return (
-    <footer className="border-inset text-muted-fg dark:border-border bg-surface border-t border-black py-6 max-sm:border-b sm:py-10">
+    <footer className="border-inset border-t border-black bg-surface py-6 text-muted-fg max-sm:border-b sm:py-10 dark:border-border">
       <MaxWidthContainer className="flex max-sm:flex-col max-sm:items-center max-sm:gap-y-8 sm:flex-wrap sm:justify-between">
         <section className="max-sm:flex max-sm:justify-center max-sm:gap-x-8 sm:hidden">{footerLinksContent}</section>
 
@@ -38,7 +38,7 @@ export function Footer() {
                 target={link.external ? '_blank' : undefined}
                 rel={link.external ? 'noopener noreferrer' : undefined}
                 aria-label={link.label}
-                className="group text-muted-fg hover:text-foreground transition-colors"
+                className="group text-muted-fg transition-colors hover:text-foreground"
               >
                 <Icon className="size-8 motion-safe:transition-transform motion-safe:duration-200 motion-safe:ease-in-out motion-safe:group-hover:-translate-y-0.5 motion-safe:group-focus-visible:-translate-y-0.5 sm:size-7" />
               </Link>
@@ -52,7 +52,7 @@ export function Footer() {
               © {new Date().getFullYear()} Angelika Iskra
             </Text>
             <Text as="p" variant="base" className="flex items-center gap-1.5">
-              Made with <HeartIcon className="text-foreground size-4" /> in Poland
+              Made with <HeartIcon className="size-4 text-foreground" /> in Poland
             </Text>
           </div>
 

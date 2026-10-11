@@ -14,7 +14,7 @@ export function HeadingLink({ id, children }: HeadingLinkProps) {
     <a
       href={`#${encodeURIComponent(id)}`}
       onClick={(event) => navigateToHeading(event, id)}
-      className="group/heading decoration-link-accent relative inline-block text-inherit no-underline decoration-2 underline-offset-2 [font:inherit] before:absolute before:top-1/2 before:right-full before:h-8 before:w-2 before:-translate-y-1/2 before:content-[''] hover:underline focus-visible:rounded-sm focus-visible:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current"
+      className="group/heading relative inline-block text-inherit no-underline decoration-link-accent decoration-2 underline-offset-2 [font:inherit] before:absolute before:top-1/2 before:right-full before:h-8 before:w-2 before:-translate-y-1/2 before:content-[''] hover:underline focus-visible:rounded-sm focus-visible:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current"
     >
       <span
         aria-hidden="true"

@@ -25,16 +25,16 @@ export async function PostView({ post }: PostViewProps) {
               {post.title}
             </Heading>
 
-            <div className="text-muted-fg mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-fg">
               <time dateTime={post.lastUpdated}>{format(parseISO(post.lastUpdated), 'MMM d, yyyy')}</time>
-              <span className="bg-foreground size-1 rounded-full" aria-hidden="true" />
+              <span className="size-1 rounded-full bg-foreground" aria-hidden="true" />
               <span>{post.readingTime}</span>
             </div>
           </header>
 
           {content}
 
-          <section aria-labelledby="comments-heading" className="border-border mt-16 border-t pt-8">
+          <section aria-labelledby="comments-heading" className="mt-16 border-t border-border pt-8">
             <PostComments slug={post.slug} />
           </section>
         </main>

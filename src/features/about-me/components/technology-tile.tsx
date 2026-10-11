@@ -9,7 +9,7 @@ export type TechnologyTileSize = 'small' | 'medium' | 'big';
 export type TechnologyIcon = ComponentType<ComponentPropsWithoutRef<'svg'>>;
 
 const tileVariants = cva(
-  'bg-surface dark:bg-muted-hover flex flex-col items-center justify-center rounded-xl text-center',
+  'flex flex-col items-center justify-center rounded-xl bg-surface text-center dark:bg-muted-hover',
   {
     variants: {
       size: {

@@ -1,0 +1,12 @@
+# Generated files and build outputs
+.next/
+out/
+build/
+coverage/
+.content-collections/
+next-env.d.ts
+pnpm-lock.yaml
+
+# Local tooling and caches
+.agents/
+.playwright-mcp/

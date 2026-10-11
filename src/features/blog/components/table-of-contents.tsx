@@ -65,14 +65,14 @@ export function TableOfContents({ items }: TableOfContentsProps) {
         aria-label="On this page"
         className="sticky top-41 max-h-[calc(100dvh-11rem)] overflow-y-auto pr-2 pb-1"
       >
-        <Heading variant="h2" as="h2" className="font-heading mt-1.5 text-[20px] font-bold tracking-tight">
+        <Heading variant="h2" as="h2" className="mt-1.5 font-heading text-[20px] font-bold tracking-tight">
           On this page
         </Heading>
         <div className="relative mt-4">
           <span
             ref={indicatorRef}
             aria-hidden="true"
-            className="bg-accent pointer-events-none absolute top-0 left-0 w-1 opacity-0 motion-safe:data-[ready]:transition-[transform,height] motion-safe:data-[ready]:duration-250 motion-safe:data-[ready]:ease-out"
+            className="pointer-events-none absolute top-0 left-0 w-1 bg-accent opacity-0 motion-safe:data-[ready]:transition-[transform,height] motion-safe:data-[ready]:duration-250 motion-safe:data-[ready]:ease-out"
           />
           <ol ref={listRef} className="space-y-3 pl-5 font-sans text-[16px] leading-normal font-normal">
             {items.map((item) => (
@@ -82,7 +82,7 @@ export function TableOfContents({ items }: TableOfContentsProps) {
                   aria-current={activeId === item.id ? 'location' : undefined}
                   onClick={(event) => navigateToSection(event, item.id)}
                   className={cn(
-                    'hover:text-foreground block focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current motion-safe:transition-colors',
+                    'block hover:text-foreground focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current motion-safe:transition-colors',
                     activeId === item.id ? 'text-foreground' : 'text-muted-fg',
                     item.level === 3 && 'pl-4',
                   )}

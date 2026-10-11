@@ -5,5 +5,5 @@ type TipProps = {
 };
 
 export function Tip({ children }: TipProps) {
-  return <aside className="border-foreground/30 text-muted-fg my-6 border-l-2 pl-4">{children}</aside>;
+  return <aside className="my-6 border-l-2 border-foreground/30 pl-4 text-muted-fg">{children}</aside>;
 }

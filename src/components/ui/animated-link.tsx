@@ -22,11 +22,11 @@ export function AnimatedLink({ children, hoverAnimation = 'underline', className
       {children}
 
       {hoverAnimation === 'underline' && (
-        <span className="bg-foreground absolute -bottom-1 left-0 h-px w-full origin-left scale-x-0 transition-transform duration-300 ease-out group-hover:scale-x-100" />
+        <span className="absolute -bottom-1 left-0 h-px w-full origin-left scale-x-0 bg-foreground transition-transform duration-300 ease-out group-hover:scale-x-100" />
       )}
 
       {hoverAnimation === 'arrowSlide' && (
-        <ArrowRightIcon className="text-link-accent size-5 shrink-0 motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-in-out motion-safe:group-hover:translate-x-1.5 motion-safe:group-focus-visible:translate-x-1.5" />
+        <ArrowRightIcon className="size-5 shrink-0 text-link-accent motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-in-out motion-safe:group-hover:translate-x-1.5 motion-safe:group-focus-visible:translate-x-1.5" />
       )}
     </Link>
   );

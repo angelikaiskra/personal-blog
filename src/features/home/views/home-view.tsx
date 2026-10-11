@@ -28,8 +28,8 @@ export function HomeView() {
               <Heading variant="h1" as="h1" className="sm:text-5xl">
                 Hi, I&apos;m Angela!
               </Heading>
-              <SparklesIcon className="text-accent absolute top-2 -right-13 size-9 sm:static sm:size-12" />
-              <SparklesIcon className="text-accent absolute -top-4 -left-14 size-7 rotate-30 sm:hidden" />
+              <SparklesIcon className="absolute top-2 -right-13 size-9 text-accent sm:static sm:size-12" />
+              <SparklesIcon className="absolute -top-4 -left-14 size-7 rotate-30 text-accent sm:hidden" />
             </div>
             <Text as="p">
               <span className="sm:block">Frontend Developer crafting web experiences with React and TypeScript. </span>I
@@ -51,7 +51,7 @@ export function HomeView() {
             Latest posts
           </Heading>
 
-          <ul className="divide-border mt-6 divide-y sm:mt-8">
+          <ul className="mt-6 divide-y divide-border sm:mt-8">
             {recentPosts.map((post) => (
               <li key={post.slug} className="py-8 first:pt-0">
                 <article className="max-w-3xl">
@@ -64,9 +64,9 @@ export function HomeView() {
                     </Link>
                   </Heading>
 
-                  <div className="text-muted-fg flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-fg">
                     <time dateTime={post.lastUpdated}>{format(parseISO(post.lastUpdated), 'MMMM do, yyyy')}</time>
-                    <span className="bg-muted-fg size-1.5 rounded-full" aria-hidden="true" />
+                    <span className="size-1.5 rounded-full bg-muted-fg" aria-hidden="true" />
                     <span>{post.readingTime}</span>
                   </div>
 

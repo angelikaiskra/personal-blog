@@ -19,8 +19,8 @@ export function Header() {
   return (
     <header
       className={cn(
-        'bg-background sticky top-0 z-40 w-full border-b transition-colors duration-150 ease-out',
-        isScrolled ? 'dark:border-border border-black' : 'border-transparent',
+        'sticky top-0 z-40 w-full border-b bg-background transition-colors duration-150 ease-out',
+        isScrolled ? 'border-black dark:border-border' : 'border-transparent',
       )}
     >
       <MaxWidthContainer className="flex h-20 items-center justify-between">
@@ -36,7 +36,7 @@ export function Header() {
             <Link
               key={link.href}
               href={link.href}
-              className="text-muted-fg dark:text-foreground hover:text-foreground hover:bg-muted dark:hover:bg-muted-hover -mx-3 inline-flex h-9 items-center rounded-md px-3 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current dark:hover:text-[#F5F0E6]"
+              className="-mx-3 inline-flex h-9 items-center rounded-md px-3 text-muted-fg transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current dark:text-foreground dark:hover:bg-muted-hover dark:hover:text-[#F5F0E6]"
             >
               <Heading className="text-base text-inherit">{link.label}</Heading>
             </Link>

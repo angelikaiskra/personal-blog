@@ -65,7 +65,7 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
           aria-label="Close menu"
           onClick={() => setIsOpen(false)}
           className={cn(
-            'bg-foreground absolute inset-0 z-0 transition-opacity duration-500 ease-out',
+            'absolute inset-0 z-0 bg-foreground transition-opacity duration-500 ease-out',
             isOpen ? 'opacity-100' : 'opacity-0',
           )}
         />
@@ -74,7 +74,7 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
           id="black-opacity"
           aria-hidden="true"
           className={cn(
-            'bg-foreground pointer-events-none absolute inset-0 z-10 opacity-0 transition-opacity duration-300 ease-out',
+            'pointer-events-none absolute inset-0 z-10 bg-foreground opacity-0 transition-opacity duration-300 ease-out',
             isOpen ? 'opacity-70' : 'opacity-0',
           )}
         />
@@ -82,7 +82,7 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
         <div
           id="dark-panel"
           className={cn(
-            'bg-foreground dark:border-border absolute top-0 left-0 z-20 h-2/3 w-full rounded-2xl border border-black transition-transform duration-500 ease-[cubic-bezier(0.77,0,0.175,1)]',
+            'absolute top-0 left-0 z-20 h-2/3 w-full rounded-2xl border border-black bg-foreground transition-transform duration-500 ease-[cubic-bezier(0.77,0,0.175,1)] dark:border-border',
             isOpen ? 'translate-x-0 delay-100' : '-translate-x-full delay-0',
           )}
         >
@@ -93,21 +93,21 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
                   <Link
                     href={link.href}
                     onClick={() => setIsOpen(false)}
-                    className="font-heading text-muted text-4xl font-bold tracking-tight"
+                    className="font-heading text-4xl font-bold tracking-tight text-muted"
                   >
                     {link.label}
                   </Link>
                 </li>
               ))}
             </ul>
-            <ThemeToggle className="text-muted hover:bg-muted/10 hover:text-background mt-10 -ml-3" />
+            <ThemeToggle className="mt-10 -ml-3 text-muted hover:bg-muted/10 hover:text-background" />
           </nav>
         </div>
 
         <div
           id="light-panel"
           className={cn(
-            'bg-muted dark:border-border absolute top-2/3 right-0 z-20 h-1/3 w-full rounded-2xl border border-black transition-transform duration-500 ease-[cubic-bezier(0.77,0,0.175,1)]',
+            'absolute top-2/3 right-0 z-20 h-1/3 w-full rounded-2xl border border-black bg-muted transition-transform duration-500 ease-[cubic-bezier(0.77,0,0.175,1)] dark:border-border',
             isOpen ? 'translate-x-0 delay-100' : 'translate-x-full delay-0',
           )}
         >
@@ -123,7 +123,7 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
                       target={link.external ? '_blank' : undefined}
                       rel={link.external ? 'noopener noreferrer' : undefined}
                       onClick={() => setIsOpen(false)}
-                      className="text-foreground hover:text-muted-fg inline-flex items-center gap-3 font-sans text-lg whitespace-nowrap transition-colors"
+                      className="inline-flex items-center gap-3 font-sans text-lg whitespace-nowrap text-foreground transition-colors hover:text-muted-fg"
                     >
                       <Icon className="size-8" />
                       <span>{link.label}</span>

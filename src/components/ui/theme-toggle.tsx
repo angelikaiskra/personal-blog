@@ -23,7 +23,7 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
     () => false,
   );
   const buttonClassName = cn(
-    'text-muted-fg dark:text-foreground hover:text-foreground hover:bg-muted flex h-9 items-center justify-center gap-2 rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current w-9 dark:hover:bg-border',
+    'flex h-9 w-9 items-center justify-center gap-2 rounded-md text-muted-fg transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current dark:text-foreground dark:hover:bg-border',
     className,
   );
   const isDark = resolvedTheme === 'dark';
