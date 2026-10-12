@@ -49,6 +49,7 @@ const eslintConfig = defineConfig([
     '.content-collections/**',
     '.agents/**',
     '.playwright-mcp/**',
+    '.img2threejs/**',
   ]),
   prettier,
 ]);

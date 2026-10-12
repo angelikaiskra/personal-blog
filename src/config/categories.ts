@@ -1,5 +1,3 @@
-import z from 'zod';
-
 export interface PostCategoryConfig {
   key: string;
   label: string;
@@ -20,5 +18,4 @@ export const postCategoryKeys = postCategories.map((tag) => tag.key) as [
   ...(typeof postCategories)[number]['key'][],
 ];
 
-const PostCategoryKey = z.enum(postCategoryKeys);
-export type PostCategoryKey = z.infer<typeof PostCategoryKey>;
+export type PostCategoryKey = (typeof postCategories)[number]['key'];
