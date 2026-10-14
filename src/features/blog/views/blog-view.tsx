@@ -66,7 +66,7 @@ export function BlogView({ selectedCategory }: BlogViewProps) {
         <ul className="mt-8 grid gap-8 sm:mt-16 md:grid-cols-2">
           {posts.map((post) => (
             <li key={post.slug}>
-              <Card as="article">
+              <Card as="article" className="flex h-full flex-col">
                 <Heading as="h2" variant="h3" className="font-bold">
                   <Link
                     href={`/blog/${post.slug}`}
@@ -82,11 +82,11 @@ export function BlogView({ selectedCategory }: BlogViewProps) {
                   <span>{post.readingTime}</span>
                 </div>
 
-                <Text as={Link} href={`/blog/${post.slug}`} variant="body" className="mt-4 block">
+                <Text as={Link} href={`/blog/${post.slug}`} variant="body" className="mt-4 mb-6 block">
                   {post.excerpt}
                 </Text>
 
-                <AnimatedLink href={`/blog/${post.slug}`} hoverAnimation="arrowSlide" className="mt-6">
+                <AnimatedLink href={`/blog/${post.slug}`} hoverAnimation="arrowSlide" className="mt-auto">
                   Read more
                 </AnimatedLink>
               </Card>

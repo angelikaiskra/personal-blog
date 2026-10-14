@@ -22,6 +22,7 @@ const mdxContentStyles = cn(
 
   // Paragraphs
   'prose-p:my-6 prose-p:[&:is(h2+p,h3+p,h4+p)]:mt-0',
+  'prose-blockquote:font-normal',
 
   // Numbered lists
   'dark:[--tw-prose-counters:var(--muted-fg)]',

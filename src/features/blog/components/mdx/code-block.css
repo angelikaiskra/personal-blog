@@ -122,11 +122,51 @@
   .code-block-copy-button:where(.dark, .dark *)[data-copy-status='copied'] .code-block-copy-icon {
     color: var(--color-green-400);
   }
+
+  .prose aside [data-rehype-pretty-code-figure] {
+    margin-inline: 0;
+  }
+
+  aside .code-block,
+  aside .code-block-pre {
+    --code-bg: #fff;
+
+    background-color: var(--code-bg);
+  }
+
+  aside .code-block:where(.dark, .dark *),
+  aside .code-block-pre:where(.dark, .dark *) {
+    --code-bg: #0e2115;
+  }
 }
 
 @layer utilities {
   .code-block-copy-button .code-block-copy-icon {
     width: 1rem;
     height: 1rem;
+  }
+
+  aside [data-rehype-pretty-code-title] {
+    margin: 0;
+    border: 1px solid var(--border);
+    border-bottom: 0;
+    border-radius: 0.5rem 0.5rem 0 0;
+    background-color: #dcf5d6;
+    padding: 0.5rem 1rem;
+    font-family: var(--font-montserrat);
+    color: var(--foreground);
+    font-size: 0.875rem;
+    font-weight: 700;
+    line-height: 1.25rem;
+  }
+
+  aside [data-rehype-pretty-code-title]:where(.dark, .dark *) {
+    background-color: #102619;
+  }
+
+  @media (min-width: 40rem) {
+    aside [data-rehype-pretty-code-title] {
+      padding-inline: 1.25rem;
+    }
   }
 }

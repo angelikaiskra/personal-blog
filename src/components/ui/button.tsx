@@ -12,9 +12,12 @@ const buttonVariants = cva(
           'text-primary-fg [&>.base]:bg-primary hover:[&>.base]:bg-primary-hover [&>.darker]:bg-[#86662D] dark:[&>.darker]:bg-black dark:[&>.darkest]:bg-[#494042]',
         secondary:
           'text-secondary-fg [&>.base]:border-2 [&>.base]:border-black [&>.base]:bg-secondary hover:[&>.base]:bg-[#383D51] dark:[&>.base]:border-secondary [&>.darker]:bg-[#131520] dark:[&>.darker]:bg-black [&>.darkest]:bg-black dark:[&>.darkest]:bg-[#2A2D3B]',
+        green:
+          'text-white [&>.base]:bg-[#15803d] hover:[&>.base]:bg-[#166534] [&>.darker]:bg-[#14532d] [&>.darkest]:bg-transparent',
       },
       size: {
         default: 'h-11 gap-3 px-6 sm:h-10',
+        sm: 'h-8 gap-2 px-4 text-sm',
       },
     },
     defaultVariants: {

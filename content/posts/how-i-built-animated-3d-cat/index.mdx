@@ -1,0 +1,225 @@
+---
+title: 'How I built animated 3D cat'
+slug: 'how-i-built-animated-3d-cat'
+excerpt: "If you’ve visited this site before, you’ve probably seen a cat looking at you from the hero section of the home page. In this post, I'll tell you about how it was generated and..."
+created: '2026-10-14'
+lastUpdated: '2026-10-14'
+categories: ['react', 'typescript', 'general']
+published: true
+---
+
+If you’ve visited this site before, you’ve probably seen a cat looking at you from the hero section of the home page. If not, you can find it down below 😄
+
+<div className="mx-auto my-8 w-full max-w-[422px]">
+  <Animated3dCat />
+</div>
+
+It has a few idle animations: breathing, occasional blinking, ear twitches and subtle head and tail movements. Move your cursor closer and it starts watching it, following it with its eyes and head.
+
+The entire cat is built procedurally in Three.js. Its gestures are scheduled randomly, using `Math.random()`, so on every visit you see a slightly different sequence. The animations can also overlap with each other, which makes the cat feel a bit more alive.
+
+The model is theme-aware. In light mode you see an orange cat with brown stripes and in dark mode, it becomes a cream-and-brown Siamese cat with blue eyes.
+
+To be honest, I spent way too much time on this thing. And I ended up using AI quite heavily, which wasn’t my plan at the start.
+
+But let me start from the beginning.
+
+## Idea and preparations
+
+I had this idea of creating an animated 3D cat in a voxel-art, Minecraft-like style. There was some empty space in hero section that I wanted to fill in, but didn’t want to place just another static image there. I wanted something a little unusual that would make the site feel different from all the other developer portfolios out there.
+
+I started by collecting references of animals made in a similar art style. Most of them I found on [Sketchfab](https://sketchfab.com/).
+
+Then I fed those references to GPT Sol and asked it to generate a 2D version of my ideal cat.
+
+After many iterations and a few fresh starts in new contexts, I ended up with this reference, which I thought was good enough:
+
+<PostImage
+  src="how-i-built-animated-3d-cat/assets/cat-1.png"
+  alt="..."
+  className="mx-auto h-auto w-full max-w-[400px]"
+  sizes="(max-width: 400px) 100vw, 400px"
+/>
+
+You can tell it’s AI-generated at a first glance. The paws aren’t symmetrical, there are some weird gaps pretending to be claws and the tail seems to be coming out of the leg. But that didn’t really matter, as long as the bigger parts came together nicely and the overall proportions were right.
+
+## Creating 3D model in Blender
+
+If you’re a web developer who wants to deliver projects fully on your own, besides programming, skills like website design, UX or animations come in handy.
+
+3D modelling and rigging are probably less useful, unless you want to build games or websites featuring more advanced 3D interactions.
+
+I do have some ideas like that on my side projects list, so I figured a blocky cat model would be a good starting point, since it’s made of very simple shapes. So I installed Blender and got to work.
+
+I spent about three weeks watching tutorials (yes, the donut one too 😄), moving cubes around, memorizing shortcuts and trying to figure out all the controls.
+
+The result was absolute shit. I really am hopeless at art. I didn’t even make it past the modelling stage, which is arguably the easier part compared with rigging and animation.
+
+Finally, I gave up. But I don’t consider this time completely wasted. Blender no longer looks like the cockpit of an alien spacecraft.
+
+<Aside>
+For simple, voxel-art models like this, I also recommend [MagicaVoxel](https://ephtracy.github.io/).
+
+If you were this kid who spent all their time building things in Minecraft, it will be perfect for you. It’s a very similar experience and it’s a lot of fun. The workflow feels much closer to placing blocks than traditional 3D modelling.
+
+Unfortunately, I was always the kid gathering resources while somebody else did the building, so I still struggled, but I found MagicaVoxel much easier to understand than Blender.
+
+</Aside>
+
+## Ordering model from artist
+
+After my attempt to build the cat myself failed, I decided to spend a little money and hire a professional 3D artist. I found three people on Fiverr whose portfolios had a similar style to what I was looking for. I sent them the description and the orange-cat reference and asked for quotes. The prices ranged from $50 to $200. I chose the cheapest offer and we started working together.
+
+After a few rounds of corrections, this was the final result:
+
+<PostModel
+  src="/models/artist-cat.glb"
+  alt="Voxel cat model created by the artist"
+/>
+
+It’s not bad. With a bigger budget, the artist would spent more time polishing the model and probably delivered something better. But I didn’t want to invest too much into it, as it was my personal project and I treated it more like an experiment.
+
+I put it on the home page, added following cursor animation, but I wasn’t ready to call it a day yet. I was curious to see how would our latest technological marvel, LLMs, would perform on the same task.
+
+## Harnessing AI to generate a model
+
+My setup was fairly simple. I already had Claude Pro and ChatGPT Plus subscriptions, so I started looking into Blender MCP servers.
+
+They are two popular options: [the official Blender MCP server](https://www.blender.org/lab/mcp-server/) and a [community solution](https://github.com/ahujasid/blender-mcp). I tried both and for this particular task, I slightly preferred the official server. It gave the agent better scene/object inspection, file diagnostics and better CLI tooling.
+
+The downside was no telemetry controls and no third-party integrations for Sketchfab, Poly Haven or Hyper3D/Hunyuan3D comparing with the community one.
+
+Setup time and complexity were very similar for both.
+
+<Aside title="How to setup official Blender MCP" collapsible>
+
+**Prerequisites**
+
+1. [Blender 5.1](https://www.blender.org/download/) or newer
+2. [Add-on](https://www.blender.org/lab/mcp-server/#addon)
+3. [uv](https://docs.astral.sh/uv/getting-started/installation/)
+4. LLM Client - e.g. [Codex CLI](https://learn.chatgpt.com/docs/codex/cli) or [Claude Code CLI](https://code.claude.com/docs/en/quickstart#step-1-install-claude-code).
+
+**Steps**
+
+1. Install add-on following instruction on [blender.org](https://www.blender.org/lab/mcp-server/#addon). Enable it and start its server in Edit -> Preferences -> Add-ons.
+2. Clone the repository with blender-mcp.
+
+```sh
+git clone https://projects.blender.org/lab/blender_mcp.git "C:\Users\user\Desktop\blender_mcp"
+```
+
+3. Add MCP server to your LLM Client
+
+```sh title="Codex CLI"
+codex mcp add blender-mcp -- uv --directory "C:\Users\user\Desktop\blender_mcp\mcp" run blender-mcp
+```
+
+```sh title="Claude Code CLI"
+claude mcp add --transport stdio --scope user blender-mcp -- uv --directory "C:\Users\user\Desktop\blender_mcp\mcp" run blender-mcp
+```
+
+4. Restart Codex or Claude Code
+
+5. You should now be able to ask your AI to create something:
+
+```text
+Use blender-mcp and list the objects in the active scene. Don’t modify anything. If the connection fails, show the exact error.
+```
+
+</Aside>
+
+My first attempts were far from ideal. Here are a few examples:
+
+<div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+  <PostImage
+    src="how-i-built-animated-3d-cat/assets/cat-2.png"
+    alt="Second example of an early AI-generated 3D cat model"
+    className="mt-0 mb-0 aspect-square h-auto w-full bg-white object-contain"
+    sizes="(max-width: 639px) 100vw, (max-width: 672px) 33vw, 224px"
+  />
+  <PostImage
+    src="how-i-built-animated-3d-cat/assets/cat-3.png"
+    alt="Third example of an early AI-generated 3D cat model"
+    className="mt-0 mb-0 h-auto w-full"
+    sizes="(max-width: 639px) 100vw, (max-width: 672px) 33vw, 224px"
+  />
+  <PostImage
+    src="how-i-built-animated-3d-cat/assets/cat-4.png"
+    alt="First example of an early AI-generated 3D cat model"
+    className="mt-0 mb-0 h-auto w-full"
+    sizes="(max-width: 639px) 100vw, (max-width: 672px) 33vw, 224px"
+  />
+</div>
+
+The LLM seemed to struggle especially with the brown stripes, so I simplified the reference.
+
+<div className="mx-auto my-8 grid w-full max-w-[480px] grid-cols-1 gap-4 sm:grid-cols-2">
+  <PostImage
+    src="how-i-built-animated-3d-cat/assets/cat-5.png"
+    alt="Angled view of the simplified orange voxel cat reference"
+    className="mt-0 mb-0 h-auto w-full"
+    sizes="(max-width: 639px) 100vw, 232px"
+  />
+  <PostImage
+    src="how-i-built-animated-3d-cat/assets/cat-6.png"
+    alt="Front view of the simplified orange voxel cat reference"
+    className="mt-0 mb-0 h-auto w-full"
+    sizes="(max-width: 639px) 100vw, 232px"
+  />
+</div>
+
+That should be easier to generate, right? Right??
+
+<PostImage
+  src="how-i-built-animated-3d-cat/assets/cat-7.png"
+  alt="..."
+  className="mx-auto mt-0 mb-0 h-auto w-full max-w-[232px]"
+  sizes="(max-width: 232px) 100vw, 232px"
+/>
+
+Yeah… Not quite. The generated models still had too many unnecessary elements and some pretty major structural problems. I tried iterating on them with the LLM, of course. But when it fixed one thing, it broke another. My current workflow was not efficient and the base of generated models was far from ideal.
+
+I figured, the prompt and references weren’t enough. I also needed a better harness: the workflow, iteration loop and feedback loop.
+
+## img2threejs
+
+Before I started to figure it out by myself, I researched existing solutions.
+
+I came across [img2threejs](https://github.com/img2threejs/img2threejs), and it looked almost exactly like what I needed. It’s an open-source image-to-3D reconstruction system for Three.js. From the docs:
+
+> You give it one reference image of an object. It produces a `THREE.Group` factory written in TypeScript that recreates that object from primitives, procedural shaders, and generated geometry — with a runtime hierarchy (pivots, sockets, colliders) so the result is ready to animate, not an inert lump.
+
+So it doesn’t generate a .glb model on output, but I was going to use Three.js and import the model there anyway. This approach was also more flexible in terms of managing it from the code level.
+
+GPT Astra had launched just a day earlier and was presented as being particularly good at 3D modelling, so I decided to give it a try.
+
+The first reconstruction consumed my entire context window and got interrupted close to the end. I waited five hours for the limit to reset and tried again, this time using a multi-session reconstruction workflow, just in case, so I could resume from where it finished last. This time it finished without interruptions. This was the result:
+
+<PostImage
+  src="how-i-built-animated-3d-cat/assets/cat-8.png"
+  alt="..."
+  className="mx-auto mt-0 mb-0 h-auto w-full"
+  sizes="(max-width: 672px) 100vw, 672px"
+/>
+
+Actually, not that bad. I also asked the AI to build a small GUI with controls for individual parts of the cat’s body. After adjusting some values manually and iterating with agent on others, I finally got something I was happy with:
+
+<PostImage
+  src="how-i-built-animated-3d-cat/assets/cat-9.png"
+  alt="..."
+  className="mx-auto mt-0 mb-0 h-auto w-full max-w-[300px]"
+  sizes="(max-width: 300px) 100vw, 300px"
+/>
+
+I actually liked this version more than the model made by artist. So I kept going with this approach and added idle animations, cursor-following interaction and experimented with a few different cat’s coats.
+
+Because the model was represented directly in code, it was much easier to inspect, tweak and iterate on individual parts.
+
+You can check the source code [here](https://github.com/angelikaiskra/personal-blog/tree/main/src/features/home/components/voxel-cat). But watch out. The code is really bad. I definitely wouldn’t use it as a good example of how Three.js projects should be built, but the goal was different here. It isn’t a core feature of the website, rather a decorative detail and a prototype. I wanted for it to just look good enough and be relatively maintainable.
+
+<Separator />
+
+When I first started working on this, I didn’t think that’s where I would end. I didn’t place many bets on AI, but once I found the right tool for the job, it worked surprisingly well. I think the biggest differences were the stronger model and better constraints around it.
+
+It was a fun experiment. I hope some of my findings turn out to be useful to you. Let me know what you think about the animated cat - do you like it?
