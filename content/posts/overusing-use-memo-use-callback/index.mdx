@@ -1,0 +1,585 @@
+---
+title: 'Overusing useMemo and useCallback'
+slug: 'overusing-use-memo-use-callback'
+excerpt: "A comprehensive guide through memoization in React 19. We'll look at how useMemo and useCallback works, when they can help us and when we should avoid using them. We’ll also explore how new React Compiler changes the game."
+created: '2026-10-17'
+lastUpdated: '2026-10-17'
+categories: ['react', 'javascript']
+published: true
+---
+
+For some time now I've noticed this trend among developers to overuse `useMemo` and `useCallback` hooks. I've seen this not only among junior developers, but also among more experienced ones. It’s no wonder. Memoization in React is an advanced concept and it can cause confusion.
+
+To be honest, for a long time, I made this mistake too. I thought it was better to add `useMemo` and `useCallback` everywhere, just in case. These hooks are meant for optimization and I wanted the app to be **really** fast. It made perfect sense!
+
+Later, I found out how wrong it was. Memoization is not free. Each one of these memoized values, functions or components requires some RAM memory to store and a comparison logic to check dependencies. It can also make our code more complicated and harder to read.
+
+On the other hand, these tools exist for a reason. When used wisely, they can fix performance bottlenecks in our apps and help improve overall user experience.
+
+In this post, we’ll look at how these concepts work, when they can help us and when we should avoid using them. At the end, we’ll also explore how new React Compiler changes the game.
+
+## React re-renders
+
+But before we dive deeper, it’s important to understand why we need memoization in the first place.
+
+When we first enter the page, React performs an initial render. Then, when the state changes, React re-renders components to keep the UI in sync with the latest values. This often happens when we interact with the app, for example we click a button on a page, or when external data changes, such as when an API request completes.
+
+React is smart and it doesn’t update the entire DOM every time. Instead, it uses <HighlightedText>reconciliation</HighlightedText> mechanism:
+
+1. React calls your components functions.
+2. It builds a new Virtual DOM - a tree of JS objects, representing the desired UI with updated state.
+3. React compares the new Virtual DOM tree with the previous one. It uses a diffing algorithm to identify the minimal set of changes.
+4. Only the changed DOM nodes are updated.
+
+This process is incredibly fast and in general, re-renders aren’t that big of a deal. Problems arise when they cause unnecessary or expensive work. This can happen when we perform some heavy computations or update large component trees.
+
+In JavaScript we only have one main thread and when we have a lot going on, the app can react slower, especially on lower-end devices.
+
+## useMemo and useCallback
+
+This is where <HighlightedText>memoization</HighlightedText> comes to the rescue. We can think of it as cashing - we store a result and reuse it until one of the values in the dependency array changes.
+
+React hands us two great hooks for this:
+
+`useMemo` allows us to memoise the results of a calculation and returns a cached **value**. It saves the value on the same address in memory, so whenever you use this variable, you will obtain the same result. For example, there is some kind of long calculation and the result is 42. On the next render, you will instantly get 42, without having to perform the long calculation again.
+
+`useCallback` is similar, but it's built specifically for **functions**. It lets us keep the same function reference between re-renders. So on first render it stores the function in memory and whenever you call it, it will return the same reference, until one of the dependencies in the array changes.
+
+<Aside title="Do you know that">
+
+`useCallback(fn, deps)`
+
+is actually the same as
+
+`useMemo(() => fn, deps)` ?
+
+<br />
+For example:
+
+```tsx
+const handleClick = useCallback(() => {
+  console.log('Clicked!');
+}, []);
+```
+
+is equivalent to
+
+```tsx
+const handleClick = useMemo(() => {
+  return () => {
+    console.log('Clicked!');
+  };
+}, []);
+```
+
+Then why do we have two hooks instead of just one?
+
+Because `useCallback` **returns the function uncalled**, so you can e.g. pass a stable handler to the children, while `useMemo` **executes the function and cashes its returned value**. That value can be anything, including another function.
+
+Technically, we could use `useMemo` instead of `useCallback`, but `useCallback` is generally preferred for memoizing functions, as it’s more convenient and makes our intentions clearer.
+
+</Aside>
+
+## When to use `useMemo`
+
+### Data transformations on large arrays
+
+Let’s suppose we are building an orders dashboard that displays thousands of orders:
+
+```tsx
+// ✅ Good: Orders array can be large and have a lot of entries
+const OrdersDashboard = ({ orders, searchTerm, statusFilter }) => {
+  const [theme, setTheme] = useState('light');
+
+  const visibleOrders = useMemo(() => {
+    return orders
+      .filter((order) => order.status === statusFilter)
+      .filter((order) =>
+        order.customerName
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()),
+      )
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+  }, [orders, searchTerm, statusFilter]);
+
+  return (
+    <>
+      <button
+        onClick={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
+      >
+        Toggle theme
+      </button>
+
+      <div data-theme={theme}>
+        <Table data={visibleOrders} />
+      </div>
+    </>
+  );
+};
+```
+
+Without `useMemo` , filtering and sorting of `visibleOrders` array would happen on every component re-render, also we toggle the theme, even though this change is unrelated to orders or filters.
+
+That's unnecessary work, especially when dealing with thousands of records.
+
+By wrapping the transformation in `useMemo`, React can reuse the previously calculated orders array as long as direct dependencies - `orders`, `searchTerm` and `statusFilter` remain unchanged.
+
+<Aside title="Should we memoize every array transformation?">
+
+In most cases, we have a pagination on backend, so client-side arrays rarely grow large enough to require `useMemo`. For just 10 or 20 elements, the cost of memoizing the data is greater than just performing the transformation on every render.
+
+The general recommended approach is, **don’t optimize prematurely**. Optimize only when you notice some kind of slowdown in your app.
+
+Measure, then add `useMemo` , then measure again.
+
+The most important tool for this is React Profiler from official [React Developer Tools](https://chromewebstore.google.com/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi).
+
+</Aside>
+
+### Complex calculations
+
+You might have a relatively small array, but perform heavy computations on it. In the example above, `filter` and `sort` are relatively cheap operations, so performance problems start to appear only when the dataset becomes very large.
+
+But what if we wanted to add financial breakdowns and metrics for our `OrdersDashboard`?
+
+```tsx
+// ✅ Good: We are performing expensive calculations on each render
+const OrdersDashboard = ({ orders, searchTerm, statusFilter }) => {
+  const { visibleOrders, totalProfit } = useMemo(() => {
+    const filtered = orders
+      .filter((order) => order.status === statusFilter)
+      .filter((order) =>
+        order.customerName
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()),
+      )
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    let profitSum = 0;
+
+    // These math operations aren't actually that heavy, but for the
+    // purpose of this exerice imagine there's a lot of going on here
+    const processed = filtered.map((order) => {
+      const shippingCost = order.weight * 2.5;
+      const taxes = order.totalAmount * 0.23;
+      const platformFee = order.totalAmount * 0.05;
+      const netProfit =
+        order.totalAmount -
+        (order.salePrice + shippingCost + taxes + platformFee);
+
+      profitSum += netProfit;
+
+      return { ...order, netProfit };
+    });
+
+    return { visibleOrders: processed, totalProfit: profitSum };
+  }, [orders, searchTerm, statusFilter]);
+
+  return (
+    <div>
+      <MetricCard title="Total Profit" value={totalProfit} />
+      <Table data={visibleOrders} />
+    </div>
+  );
+};
+```
+
+The list itself might not even be that large anymore, but for every order, we are performing multi-step math to calculate the profit. If there are 1000 orders, this creates thousands of operations on each render. This is where `useMemo` provides real value.
+
+### Frequent rendering of a component
+
+The same applies if your component is re-rendering frequently because of some unrelated state change.
+
+Let’s say we want to allow users to resize table column:
+
+```tsx
+// ✅ Good: We skip recalculating heavy computations when unrelated
+//    state changes
+const OrdersDashboard = ({ orders, searchTerm, statusFilter }) => {
+  const [columnWidth, setColumnWidth] = useState(250);
+
+  const visibleOrders = useMemo(() => {
+    return orders
+      .filter((order) => order.status === statusFilter)
+      .filter((order) =>
+        order.customerName
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()),
+      )
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+  }, [orders, searchTerm, statusFilter]);
+
+  const handleResize = (event) => {
+    setColumnWidth(event.clientX);
+  };
+
+  return (
+    <ResizableTable
+      data={visibleOrders}
+      columnWidth={columnWidth}
+      onColumnResize={handleResize}
+    />
+  );
+};
+```
+
+While the column is being dragged, `columnWidth` can update dozens of times per second. Each update triggers `OrdersDashboard` to render again. Without `useMemo`, React would recalculate `processedOrders` on every single pixel movement of the mouse. Memoizing them ensures the component behavior remains smooth and instantly responsive.
+
+## When to use `useCallback`
+
+### Stabilizing function references
+
+Before we continue with this use case, let’s quickly look at how JavaScript compares values.
+
+Primitives, like strings, numbers and boolean values are pretty straightforward. When we compare them:
+
+```tsx
+const a = 1;
+const b = 1;
+
+console.log(a === b); // -> true
+```
+
+Both variables contain the same value, so the comparison returns `true`.
+
+With objects, arrays and functions it’s a different story. JavaScript compares them by the reference (their location in memory), not by their contents.
+
+```tsx
+const firstFunction = () => console.log('Hello!');
+const secondFunction = () => console.log('Hello!');
+
+console.log(firstFunction === secondFunction); // -> false
+```
+
+From the logical point of view, we should get `true` in the console. Both functions are identical after all. But that’s not what’s happening.
+
+Each time we create a function, JavaScript allocates a new object in a different location in memory. `firstFunction` and `secondFunction` store a pointer to that address in memory, not the objects directly. That’s why when we compare them with `===` , we compare their references (whether they point to the same memory) and the result is `false`.
+
+The same logic applies in React when it compares variables between re-renders, like dependencies in hooks.
+
+```tsx
+// ❌ Bad: Unstable function reference causes an infinite loop
+const OrdersAnalytics = ({ statusFilter }) => {
+  const [analytics, setAnalytics] = useState(null);
+
+  const loadAnalytics = async () => {
+    const data = await fetchAnalytics(statusFilter);
+    setAnalytics(data);
+  };
+
+  useEffect(() => {
+    loadAnalytics();
+  }, [loadAnalytics]);
+
+  return <AnalyticsView data={analytics} />;
+};
+```
+
+This code results in an infinite loop:
+
+1. The component renders and `useEffect` calls `loadAnalytics`
+2. When request finishes, `setAnalytics` updates the state
+3. Component re-renders, creating new `loadAnalytics` function
+4. The dependency in `useEffect` has changed, so it runs again
+5. The cycle continues and continues…
+
+It’s the worst scenario a developer could face! Let’s quickly fix it.
+
+```tsx
+// ✅ Good: Stable function reference prevents unnecessary re-fetches
+const OrdersAnalytics = ({ statusFilter }) => {
+  const [analytics, setAnalytics] = useState(null);
+
+  const loadAnalytics = useCallback(async () => {
+    const data = await fetchAnalytics(statusFilter);
+    setAnalytics(data);
+  }, [statusFilter]);
+
+  useEffect(() => {
+    loadAnalytics();
+  }, [loadAnalytics]);
+
+  return <AnalyticsView data={analytics} />;
+};
+```
+
+Uff, that’s better.
+
+By wrapping `loadAnalytics` in `useCallback`, we tell React to preserve the function reference as long as `statusFilter` remains unchanged.
+
+Now, when `setAnalytics` updates the state, it still causes a component re-render, but the dependency in `useEffect` is kept the same, so the effect doesn’t run again.
+
+### Passing callbacks to memoized components
+
+The same idea applies when we want to prevent unnecessary re-renders of children components:
+
+```tsx
+// ✅ Good: Stable callback reference prevents unnecessary re-renders
+const OrdersDashboard = ({ orders }) => {
+  const [selectedOrderId, setSelectedOrderId] = useState(null);
+
+  const handleSelectOrder = useCallback((orderId) => {
+    setSelectedOrderId(orderId);
+  }, []);
+
+  return (
+    <>
+      <p>Selected order: {selectedOrderId}</p>
+      <OrdersChart orders={orders} onSelectOrder={handleSelectOrder} />
+    </>
+  );
+};
+
+const OrdersChart = React.memo(({ orders, onSelectOrder }) => {
+  // Expensive chart rendering logic...
+  return <ChartCanvas data={orders} onPointClick={onSelectOrder} />;
+});
+```
+
+### Optimizing reusable hooks
+
+There’s a popular React library called [@uidotdev/usehooks](https://github.com/uidotdev/usehooks). It provides a collection of handy hooks for common use cases, such as [useDebounce](https://usehooks.com/usedebounce), [useToggle](https://usehooks.com/usetoggle) or [useList](https://usehooks.com/uselist).
+
+If we look at its source code, we can see that `useCallback` is frequently used to memoize functions returned by these hooks.
+
+[**useToggle**](https://github.com/uidotdev/usehooks/blob/main/index.js#L1264):
+
+```tsx
+export function useToggle(initialValue) {
+  const [on, setOn] = React.useState(() => {
+    if (typeof initialValue === 'boolean') {
+      return initialValue;
+    }
+
+    return Boolean(initialValue);
+  });
+
+  const handleToggle = React.useCallback((value) => {
+    if (typeof value === 'boolean') {
+      return setOn(value);
+    }
+
+    return setOn((v) => !v);
+  }, []);
+
+  return [on, handleToggle];
+}
+```
+
+[**useList**](https://github.com/uidotdev/usehooks/blob/main/index.js#L564):
+
+```tsx
+export function useList(defaultList = []) {
+  const [list, setList] = React.useState(defaultList);
+
+  const set = React.useCallback((l) => {
+    setList(l);
+  }, []);
+
+  const push = React.useCallback((element) => {
+    setList((l) => [...l, element]);
+  }, []);
+
+  // ... other methods
+
+  const clear = React.useCallback(() => setList([]), []);
+
+  return [list, { set, push, removeAt, insertAt, updateAt, clear }];
+}
+```
+
+When we create reusable hooks, it’s good to make them memoized, since we don’t really know how they will be used.
+
+One developer might use `toggle` directly in a button's `onClick` handler, while another might pass it to a memoized child component or include it in a `useEffect` dependency array.
+
+It's not always necessary, but it’s safer to provide stable callbacks for your generic hooks. It makes them more predictable.
+
+## When to avoid `useMemo` and `useCallback`
+
+<h3>The calculation is cheap</h3>
+
+Wrapping `useMemo` over simple math, string concatenation or basic boolean checks usually creates more overhead and makes the code harder to read.
+
+```tsx
+// ❌ Bad: Unnecessary memoization of a simple calculation
+const totalPrice = useMemo(() => price * quantity, [price, quantity]);
+```
+
+<h3>The result is a primitive value</h3>
+
+Numbers, strings and booleans don’t have the same reference stability problems as objects or arrays.
+
+```tsx
+// ❌ Bad: Memoizing a primitive value
+const fullName = useMemo(
+  () => `${firstName} ${lastName}`,
+  [firstName, lastName],
+);
+```
+
+Even if the string is recreated on every render, React will consider it unchanged if its value stays the same.
+
+<h3>Dependencies change frequently</h3>
+
+If dependencies change on almost every render, there’s no point in memoizing them. React has to recalculate the value often anyway.
+
+```tsx
+// ❌ Bad: filters object is recreated on every render, so
+//    dependencies in useMemo change frequently
+const filters = { status: 'completed' };
+
+const visibleOrders = useMemo(() => {
+  return filterOrders(orders, filters);
+}, [orders, filters]);
+```
+
+<h3>The component rarely re-renders</h3>
+
+If a component renders only once or very occasionally, there's usually little work to save.
+
+```tsx
+// ❌ Bad: Unnecessary memoization in a static footer
+const Footer = () => {
+  const links = useMemo(
+    () => [
+      { label: 'Privacy Policy', href: '/privacy' },
+      // ... more footer links
+    ],
+    [],
+  );
+
+  return (
+    <footer>
+      {links.map((link) => (
+        <a key={link.href} href={link.href}>
+          {link.label}
+        </a>
+      ))}
+    </footer>
+  );
+};
+```
+
+<h3>The callback doesn't need a stable reference</h3>
+
+If a callback is used directly as an event handler and isn't passed to a memoized child or used as a dependency, stabilizing its reference is usually unnecessary.
+
+```tsx
+// ❌ Bad: useCallback for a simple event handler
+const handleClick = useCallback(() => {
+  console.log('Button clicked');
+}, []);
+
+return <button onClick={handleClick}>Click me</button>;
+```
+
+<h3>The child component isn't memoized</h3>
+
+Using `useCallback` to stabilize a function passed to a regular child component doesn't automatically prevent that component from re-rendering.
+
+```tsx
+// ❌ Bad: useCallback alone doesn't bring any value here
+const handleSelect = useCallback((id) => {
+  setSelectedId(id);
+}, []);
+
+return <OrdersTable onSelect={handleSelect} />;
+```
+
+## React Compiler
+
+In October 2025, the React team released a [React Compiler](https://react.dev/learn/react-compiler) 1.0. It’s a tool that automatically optimizes React applications at build time, so you no longer need to add `useMemo` and `useCallback` manually.
+
+Here’s an example from [official React docs](https://react.dev/learn/react-compiler/introduction), showing a component code before and after React Compiler:
+
+<CodeBlock tabs="Before,After">
+
+```tsx
+import { useMemo, useCallback, memo } from 'react';
+
+const ExpensiveComponent = memo(function ExpensiveComponent({
+  data,
+  onClick,
+}) {
+  const processedData = useMemo(() => {
+    return expensiveProcessing(data);
+  }, [data]);
+
+  const handleClick = useCallback(
+    (item) => {
+      onClick(item.id);
+    },
+    [onClick],
+  );
+
+  return (
+    <div>
+      {processedData.map((item) => (
+        <Item key={item.id} onClick={() => handleClick(item)} />
+      ))}
+    </div>
+  );
+});
+```
+
+```tsx
+const ExpensiveComponent = ({ data, onClick }) => {
+  const processedData = expensiveProcessing(data);
+
+  const handleClick = (item) => {
+    onClick(item.id);
+  };
+
+  return (
+    <div>
+      {processedData.map((item) => (
+        <Item key={item.id} onClick={() => handleClick(item)} />
+      ))}
+    </div>
+  );
+};
+```
+
+</CodeBlock>
+
+React Compiler analyzes our components and automatically applies optimizations.
+
+While this is certainly convenient, it doesn't mean we can forget everything we've learned about memoization so far. In most cases, we won't need to use `useMemo` or `useCallback` manually anymore, but there may still be situations where compiler can't fully understand our intentions or apply the needed optimizations. It’s also good to know about these concepts when we encounter some performance problems we need to debug.
+
+The general React team’s recommendation is to rely on React Compiler for a new code and avoid adding `useMemo` or `useCallback` manually unless you have a specific reason to do so.
+
+<Aside>
+There’s a great VS Code extension that shows which components are optimized by the React Compiler and which aren’t.
+
+🔌 [VS Code extension](https://marketplace.visualstudio.com/items?itemName=blazejkustra.react-compiler-marker)
+
+🛠️ [GitHub repository](https://github.com/blazejkustra/react-compiler-marker)
+
+</Aside>
+
+## Conclusion
+
+Congratulations on reading all the way to the end! I hope your brain isn’t overloaded with all this information.
+
+<PostImage
+  src="overusing-use-memo-use-callback/assets/spongebob-brain-fried.gif"
+  alt="Patrick from Spongebob reloaded with information"
+  className="mx-auto max-w-[400px]"
+  sizes="(max-width: 400px) 100vw, 400px"
+>
+  Spongebob Patrick GIF from
+  <a href="https://tenor.com/search/spongebob-gifs">tenor.com</a>
+</PostImage>
+
+It indeed was a large portion of knowledge, but understanding when and why to use memoization is an important part of building well-written React apps.
+
+To sum it up:
+
+- `useMemo` cashes the result of a computation and recalculates it only when the dependencies change.
+- `useCallback` preserves a function's reference between re-renders.
+- **Memoization isn't free**. Overusing it everywhere won't necessarily make your app faster.
+- **Don't optimize prematurely**. Start with simple, readable code and optimize it only when you notice some performance issues.
+
+And that’s it. I hope this article has cleared up any confusion you might have had about `useMemo` and `useCallback`. If you still have any questions, feel free to leave them in the comments.
+
+Thanks for reading!

@@ -25,7 +25,7 @@ const mdxContentStyles = cn(
   'prose-blockquote:font-normal',
 
   // Numbered lists
-  'dark:[--tw-prose-counters:var(--muted-fg)]',
+  '[--tw-prose-counters:var(--link-accent)] dark:[--tw-prose-counters:var(--accent)]',
 
   // Links
   'prose-a:decoration-link-accent prose-a:decoration-2 prose-a:underline-offset-2',
@@ -34,6 +34,7 @@ const mdxContentStyles = cn(
   'prose-code:rounded-md prose-code:bg-inline-code-bg prose-code:px-1.5 prose-code:py-0.5',
   'prose-code:box-decoration-clone prose-code:font-code prose-code:text-[15px] prose-code:font-medium',
   'prose-code:before:content-none prose-code:after:content-none',
+  '[&_h2_code]:text-(length:--text-lg) [&_h2_code]:font-semibold',
 );
 
 export async function compileMdxContent(source: string) {

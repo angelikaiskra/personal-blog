@@ -18,7 +18,7 @@ const copyFeedback = {
   },
 } satisfies Record<CopyStatus, { title: string; announcement: string }>;
 
-export function CodeBlock({ children, className, tabIndex = 0, ...props }: ComponentPropsWithoutRef<'pre'>) {
+export function CodeBlockPre({ children, className, tabIndex = 0, ...props }: ComponentPropsWithoutRef<'pre'>) {
   const preRef = useRef<HTMLPreElement>(null);
 
   return (
@@ -63,15 +63,22 @@ function CopyCodeButton({ preRef }: { preRef: RefObject<HTMLPreElement | null> }
     <>
       <button
         type="button"
-        className="code-block-copy-button"
+        className={cn(
+          'absolute top-1.5 right-2 inline-flex min-h-8 min-w-8 cursor-pointer items-center justify-center',
+          'rounded-md border border-border bg-background p-1.5 text-muted-fg',
+          'hover:bg-muted hover:text-foreground',
+          'focus-visible:outline-2 focus-visible:-outline-offset-3 focus-visible:outline-link-accent',
+        )}
         onClick={copyCode}
         aria-label="Copy code"
         title={feedback.title}
-        data-copy-status={status}
       >
-        <ClipboardIcon checked={status === 'copied'} className="code-block-copy-icon" />
+        <ClipboardIcon
+          checked={status === 'copied'}
+          className={cn('size-4', status === 'copied' && 'text-green-600 dark:text-green-400')}
+        />
       </button>
-      <span className="code-block-announcement" role="status">
+      <span className="sr-only" role="status">
         {feedback.announcement}
       </span>
     </>

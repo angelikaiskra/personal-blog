@@ -1,10 +1,10 @@
 ---
 title: 'How I built animated 3D cat'
 slug: 'how-i-built-animated-3d-cat'
-excerpt: "If you’ve visited this site before, you’ve probably seen a cat looking at you from the hero section of the home page. In this post, I'll tell you about how it was generated and..."
-created: '2026-10-14'
-lastUpdated: '2026-10-14'
-categories: ['react', 'typescript', 'general']
+excerpt: "In this post, I share how I built an interactive 3D cat for this website's home page. As you'll see, it was an experiment full of failed attempts and unexpected turns, but it was a fun challenge nonetheless."
+created: '2026-10-02'
+lastUpdated: '2026-10-02'
+categories: ['react', 'general']
 published: true
 ---
 
@@ -55,7 +55,7 @@ I spent about three weeks watching tutorials (yes, the donut one too 😄), movi
 
 The result was absolute shit. I really am hopeless at art. I didn’t even make it past the modelling stage, which is arguably the easier part compared with rigging and animation.
 
-Finally, I gave up. But I don’t consider this time completely wasted. Blender no longer looks like the cockpit of an alien spacecraft.
+Finally, I gave up. But I don’t consider this time completely wasted. At least Blender no longer looks like the cockpit of an alien spacecraft to me.
 
 <Aside>
 For simple, voxel-art models like this, I also recommend [MagicaVoxel](https://ephtracy.github.io/).
@@ -77,7 +77,7 @@ After a few rounds of corrections, this was the final result:
   alt="Voxel cat model created by the artist"
 />
 
-It’s not bad. With a bigger budget, the artist would spent more time polishing the model and probably delivered something better. But I didn’t want to invest too much into it, as it was my personal project and I treated it more like an experiment.
+With a bigger budget, the artist would spent more time polishing the model and probably delivered something better. But I didn’t want to invest too much money into it, as it was my personal project and I treated it more like an experiment.
 
 I put it on the home page, added following cursor animation, but I wasn’t ready to call it a day yet. I was curious to see how would our latest technological marvel, LLMs, would perform on the same task.
 
@@ -87,47 +87,7 @@ My setup was fairly simple. I already had Claude Pro and ChatGPT Plus subscripti
 
 They are two popular options: [the official Blender MCP server](https://www.blender.org/lab/mcp-server/) and a [community solution](https://github.com/ahujasid/blender-mcp). I tried both and for this particular task, I slightly preferred the official server. It gave the agent better scene/object inspection, file diagnostics and better CLI tooling.
 
-The downside was no telemetry controls and no third-party integrations for Sketchfab, Poly Haven or Hyper3D/Hunyuan3D comparing with the community one.
-
-Setup time and complexity were very similar for both.
-
-<Aside title="How to setup official Blender MCP" collapsible>
-
-**Prerequisites**
-
-1. [Blender 5.1](https://www.blender.org/download/) or newer
-2. [Add-on](https://www.blender.org/lab/mcp-server/#addon)
-3. [uv](https://docs.astral.sh/uv/getting-started/installation/)
-4. LLM Client - e.g. [Codex CLI](https://learn.chatgpt.com/docs/codex/cli) or [Claude Code CLI](https://code.claude.com/docs/en/quickstart#step-1-install-claude-code).
-
-**Steps**
-
-1. Install add-on following instruction on [blender.org](https://www.blender.org/lab/mcp-server/#addon). Enable it and start its server in Edit -> Preferences -> Add-ons.
-2. Clone the repository with blender-mcp.
-
-```sh
-git clone https://projects.blender.org/lab/blender_mcp.git "C:\Users\user\Desktop\blender_mcp"
-```
-
-3. Add MCP server to your LLM Client
-
-```sh title="Codex CLI"
-codex mcp add blender-mcp -- uv --directory "C:\Users\user\Desktop\blender_mcp\mcp" run blender-mcp
-```
-
-```sh title="Claude Code CLI"
-claude mcp add --transport stdio --scope user blender-mcp -- uv --directory "C:\Users\user\Desktop\blender_mcp\mcp" run blender-mcp
-```
-
-4. Restart Codex or Claude Code
-
-5. You should now be able to ask your AI to create something:
-
-```text
-Use blender-mcp and list the objects in the active scene. Don’t modify anything. If the connection fails, show the exact error.
-```
-
-</Aside>
+The downside was no telemetry controls and no third-party integrations for Sketchfab, Poly Haven or Hyper3D/Hunyuan3D comparing with the community one. Setup time and complexity were very similar for both.
 
 My first attempts were far from ideal. Here are a few examples:
 
@@ -178,15 +138,13 @@ That should be easier to generate, right? Right??
   sizes="(max-width: 232px) 100vw, 232px"
 />
 
-Yeah… Not quite. The generated models still had too many unnecessary elements and some pretty major structural problems. I tried iterating on them with the LLM, of course. But when it fixed one thing, it broke another. My current workflow was not efficient and the base of generated models was far from ideal.
+Not quite 😄 The generated models still had too many unnecessary elements and some pretty major structural problems. I tried iterating on them with the LLM, of course. But when it fixed one thing, it broke another. My current workflow was not efficient and the base of generated models was far from ideal.
 
-I figured, the prompt and references weren’t enough. I also needed a better harness: the workflow, iteration loop and feedback loop.
+I figured, the prompt and references weren’t enough. I also needed a better harness for AI: the workflow, iteration loop and feedback loop.
 
 ## img2threejs
 
-Before I started to figure it out by myself, I researched existing solutions.
-
-I came across [img2threejs](https://github.com/img2threejs/img2threejs), and it looked almost exactly like what I needed. It’s an open-source image-to-3D reconstruction system for Three.js. From the docs:
+I started by researching existing solutions. I came across [img2threejs](https://github.com/img2threejs/img2threejs), and it looked almost exactly like what I needed. It’s an open-source image-to-3D reconstruction system for Three.js. From the docs:
 
 > You give it one reference image of an object. It produces a `THREE.Group` factory written in TypeScript that recreates that object from primitives, procedural shaders, and generated geometry — with a runtime hierarchy (pivots, sockets, colliders) so the result is ready to animate, not an inert lump.
 
@@ -194,7 +152,9 @@ So it doesn’t generate a .glb model on output, but I was going to use Three.js
 
 GPT Astra had launched just a day earlier and was presented as being particularly good at 3D modelling, so I decided to give it a try.
 
-The first reconstruction consumed my entire context window and got interrupted close to the end. I waited five hours for the limit to reset and tried again, this time using a multi-session reconstruction workflow, just in case, so I could resume from where it finished last. This time it finished without interruptions. This was the result:
+The first reconstruction consumed my entire context window and got interrupted close to the end. I waited five hours for the limit to reset and tried again, this time using a multi-session reconstruction workflow, just in case, so I could resume from where it finished last.
+
+This time it finished without interruptions and this was the result:
 
 <PostImage
   src="how-i-built-animated-3d-cat/assets/cat-8.png"
@@ -216,10 +176,10 @@ I actually liked this version more than the model made by artist. So I kept goin
 
 Because the model was represented directly in code, it was much easier to inspect, tweak and iterate on individual parts.
 
-You can check the source code [here](https://github.com/angelikaiskra/personal-blog/tree/main/src/features/home/components/voxel-cat). But watch out. The code is really bad. I definitely wouldn’t use it as a good example of how Three.js projects should be built, but the goal was different here. It isn’t a core feature of the website, rather a decorative detail and a prototype. I wanted for it to just look good enough and be relatively maintainable.
+You can check the source code [here](https://github.com/angelikaiskra/personal-blog/tree/main/src/features/home/components/voxel-cat). But watch out. The code is kinda AI slop. I definitely wouldn’t use it as a good example of how Three.js projects should be built, but the goal was different here. It isn’t a core feature of the website, rather a decorative detail and a prototype. I just wanted it to look good enough and be relatively maintainable.
 
 <Separator />
 
 When I first started working on this, I didn’t think that’s where I would end. I didn’t place many bets on AI, but once I found the right tool for the job, it worked surprisingly well. I think the biggest differences were the stronger model and better constraints around it.
 
-It was a fun experiment. I hope some of my findings turn out to be useful to you. Let me know what you think about the animated cat - do you like it?
+It was a fun experiment. Maybe some of my findings turn out to be useful to you too. Let me know what you think about the final effect - do you like it?

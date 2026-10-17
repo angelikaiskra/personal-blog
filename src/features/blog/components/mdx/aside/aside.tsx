@@ -10,7 +10,7 @@ const asideVariants = cva(
   {
     variants: {
       variant: {
-        tip: 'border-tip-accent bg-tip [--link-accent:var(--tip-accent)]',
+        tip: 'border-tip-accent bg-tip [--inline-code-bg:#15803d29] [--link-accent:var(--tip-accent)] dark:[--inline-code-bg:#3b3435]',
       },
     },
     defaultVariants: {
