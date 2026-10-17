@@ -22,13 +22,13 @@ export const footerLinkColumns = [
 
 export const socialLinks = [
   {
-    href: 'https://github.com/angela-iskra',
+    href: 'https://github.com/angelikaiskra',
     label: 'GitHub',
     icon: GithubIcon,
     external: true,
   },
   {
-    href: 'https://www.linkedin.com',
+    href: 'https://pl.linkedin.com/in/angelika-iskra',
     label: 'LinkedIn',
     icon: LinkedinIcon,
     external: true,

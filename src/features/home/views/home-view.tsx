@@ -7,7 +7,6 @@ import { Text } from '@/components/ui/text';
 import { AnimatedLink } from '@/components/ui/animated-link';
 import { Button } from '@/components/ui/button';
 import { ArrowRightLongIcon } from '@/components/icons/arrow-right-long-icon';
-import { ArrowRightIcon } from '@/components/icons/arrow-right-icon';
 import { postCategories } from '@/config/categories';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
@@ -36,7 +35,12 @@ export function HomeView() {
               love technology and I&apos;m fascinated by how things work. This blog is where I share what I&apos;m
               currently exploring, building and figuring out.
             </Text>
-            <Button icon={<ArrowRightLongIcon className="size-5" />} className="max-sm:mt-3">
+            <Button
+              as="a"
+              href="mailto:hello@angelaiskra.com"
+              icon={<ArrowRightLongIcon className="size-5" />}
+              className="max-sm:mt-3"
+            >
               Contact me
             </Button>
           </div>
@@ -82,11 +86,11 @@ export function HomeView() {
             ))}
           </ul>
 
-          <div className="flex w-full justify-center max-sm:mt-4">
+          {/* <div className="flex w-full justify-center max-sm:mt-4">
             <Button variant="secondary" icon={<ArrowRightIcon className="size-5" />}>
               Read more posts
             </Button>
-          </div>
+          </div> */}
         </section>
 
         <aside className="max-md:mt-18">
