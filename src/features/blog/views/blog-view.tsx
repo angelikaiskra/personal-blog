@@ -1,4 +1,3 @@
-import { allPosts } from 'content-collections';
 import { format, parseISO } from 'date-fns';
 import Link from 'next/link';
 import { AnimatedLink } from '@/components/ui/animated-link';
@@ -8,6 +7,7 @@ import { Heading } from '@/components/ui/heading';
 import { MaxWidthContainer } from '@/components/ui/max-width-container';
 import { Text } from '@/components/ui/text';
 import { postCategories, type PostCategoryKey } from '@/config/categories';
+import { getPublishedPosts } from '@/features/blog/lib/posts';
 import { cn } from '@/lib/utils';
 
 const selectedBadgeClasses =
@@ -19,9 +19,7 @@ interface BlogViewProps {
 
 export function BlogView({ selectedCategory }: BlogViewProps) {
   const selectedCategoryConfig = postCategories.find((category) => category.key === selectedCategory);
-  const posts = allPosts
-    .filter((post) => post.published && (!selectedCategory || post.categories.includes(selectedCategory)))
-    .sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime());
+  const posts = getPublishedPosts().filter((post) => !selectedCategory || post.categories.includes(selectedCategory));
 
   return (
     <MaxWidthContainer className="pb-20">

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { allPosts } from 'content-collections';
 import { postCategories } from '@/config/categories';
+import { getPublishedPostBySlug, getPublishedPosts } from '@/features/blog/lib/posts';
 import { PostView } from '@/features/blog/views/post-view';
 import { createMetadata } from '@/lib/metadata';
 
@@ -10,11 +10,11 @@ interface Props {
 }
 
 export async function generateStaticParams() {
-  return allPosts.filter((p) => p.published).map((p) => ({ slug: p.slug }));
+  return getPublishedPosts().map((post) => ({ slug: post.slug }));
 }
 
 function getPublishedPost(slug: string) {
-  const post = allPosts.find((p) => p.slug === slug && p.published);
+  const post = getPublishedPostBySlug(slug);
 
   if (!post) notFound();
 

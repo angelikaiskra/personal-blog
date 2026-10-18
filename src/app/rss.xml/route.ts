@@ -1,14 +1,12 @@
-import { allPosts } from 'content-collections';
 import { Feed } from 'feed';
 import { postCategories } from '@/config/categories';
 import { siteConfig } from '@/config/site';
+import { getPublishedPosts } from '@/features/blog/lib/posts';
 
 export const dynamic = 'force-static';
 
 export function GET() {
-  const posts = allPosts
-    .filter((post) => post.published)
-    .sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
+  const posts = getPublishedPosts();
   const lastUpdated = posts.length
     ? new Date(Math.max(...posts.map((post) => new Date(post.lastUpdated).getTime())))
     : undefined;

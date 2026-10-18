@@ -29,7 +29,13 @@ export function AboutMeView() {
             </Text>
           </div>
           <div className="flex max-md:mt-8 max-md:w-full max-sm:mt-6 min-[640px]:justify-center md:justify-end">
-            <Image src="/about-me-hero.png" width={280} height={280} alt="Image of Angela smiling to the camera?" />
+            <Image
+              src="/about-me-hero.png"
+              width={281}
+              height={280}
+              className="h-auto w-70"
+              alt="Image of Angela smiling to the camera"
+            />
           </div>
         </div>
       </main>
@@ -46,7 +52,7 @@ export function AboutMeView() {
         </Heading>
 
         <Text as="p" className="mt-6 sm:mt-8">
-          All articles are written fully by me. The images in posts are generated using ChatGPT.
+          All articles are written fully by me. Some images in posts are generated using ChatGPT.
         </Text>
       </section>
     </MaxWidthContainer>

@@ -1,4 +1,3 @@
-import { allPosts } from 'content-collections';
 import Link from 'next/link';
 import { MaxWidthContainer } from '@/components/ui/max-width-container';
 import { SparklesIcon } from '@/components/icons/sparkles-icon';
@@ -10,13 +9,11 @@ import { ArrowRightLongIcon } from '@/components/icons/arrow-right-long-icon';
 import { postCategories } from '@/config/categories';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
+import { getPublishedPosts } from '@/features/blog/lib/posts';
 import { VoxelCatHero } from '../components/voxel-cat/voxel-cat-hero';
 
 export function HomeView() {
-  const recentPosts = allPosts
-    .filter((p) => p.published)
-    .sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime())
-    .slice(0, 10);
+  const recentPosts = getPublishedPosts().slice(0, 10);
 
   return (
     <MaxWidthContainer className="pb-20">

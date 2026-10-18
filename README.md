@@ -24,13 +24,14 @@ Open [localhost:3000](http://localhost:3000).
 
 ## Commands
 
-| Command                    | Purpose                    |
-| -------------------------- | -------------------------- |
-| `pnpm build`               | Build for production       |
-| `pnpm start`               | Serve the production build |
-| `pnpm lint`                | Run ESLint                 |
-| `pnpm typecheck`           | Check TypeScript           |
-| `pnpm lint:prettier-check` | Check formatting           |
+| Command                    | Purpose                                       |
+| -------------------------- | --------------------------------------------- |
+| `pnpm build`               | Build for production                          |
+| `pnpm validate:content`    | Validate article frontmatter and unique slugs |
+| `pnpm start`               | Serve the production build                    |
+| `pnpm lint`                | Run ESLint                                    |
+| `pnpm typecheck`           | Check TypeScript                              |
+| `pnpm lint:prettier-check` | Check formatting                              |
 
 ## Husky
 

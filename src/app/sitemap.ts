@@ -1,12 +1,10 @@
 import type { MetadataRoute } from 'next';
-import { allPosts } from 'content-collections';
 import { postCategories } from '@/config/categories';
 import { siteConfig } from '@/config/site';
+import { getPublishedPosts } from '@/features/blog/lib/posts';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const publishedPosts = allPosts
-    .filter((p) => p.published)
-    .sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime());
+  const publishedPosts = getPublishedPosts();
   const posts = publishedPosts.map((p) => ({
     url: `${siteConfig.url}/blog/${p.slug}`,
     lastModified: new Date(p.lastUpdated),

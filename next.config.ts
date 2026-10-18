@@ -4,12 +4,17 @@ import { withContentCollections } from '@content-collections/next';
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
-  async redirects() {
+  async headers() {
     return [
       {
-        source: '/blog/category/:category',
-        destination: '/category/:category',
-        permanent: true,
+        source: '/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+        ],
       },
     ];
   },
