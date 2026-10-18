@@ -1,0 +1,131 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Check Docker image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Build and check production image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: blog:ci
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          cache-from: type=gha,scope=blog
+          cache-to: type=gha,mode=max,scope=blog
+
+      - name: Check pages and image optimization
+        shell: bash
+        run: |
+          docker run --detach --name blog-ci --init \
+            --publish 127.0.0.1:3000:3000 \
+            --cap-drop ALL --security-opt no-new-privileges \
+            blog:ci
+          trap 'docker logs blog-ci; docker rm --force blog-ci' EXIT
+
+          check_url() {
+            local path="$1"
+            shift
+            local response
+            response=$(curl --fail --silent --show-error --max-time 20 \
+              --output /dev/null --write-out '%{http_code} %{content_type}' \
+              "$@" "http://127.0.0.1:3000${path}")
+            if [[ "$response" != "200 "* ]]; then
+              echo "Expected HTTP 200 for $path, got: $response" >&2
+              return 1
+            fi
+            if [[ "$path" == /_next/image\?* && "$response" != "200 image/"* ]]; then
+              echo "Expected an image content type for $path, got: $response" >&2
+              return 1
+            fi
+          }
+
+          check_url / --max-time 10 --retry 15 --retry-all-errors --retry-delay 1
+          for path in /blog /blog/how-i-built-animated-3d-cat /rss.xml /sitemap.xml; do
+            check_url "$path"
+          done
+          check_url '/_next/image?url=%2Favatar.webp&w=64&q=75'
+
+      - name: Save checked image
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: docker save --output "$RUNNER_TEMP/blog-image.tar" blog:ci
+
+      - name: Upload checked image
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: blog-image
+          path: ${{ runner.temp }}/blog-image.tar
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  publish:
+    name: Publish Docker image
+    needs: checks
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Download checked image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: blog-image
+          path: ${{ runner.temp }}
+
+      - name: Load checked image
+        run: docker load --input "$RUNNER_TEMP/blog-image.tar"
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set image name
+        id: image
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: echo "name=ghcr.io/${REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish checked image
+        id: publish
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          docker tag blog:ci "$IMAGE:$COMMIT_SHA"
+          docker push "$IMAGE:$COMMIT_SHA"
+          reference=$(docker image inspect "$IMAGE:$COMMIT_SHA" --format '{{index .RepoDigests 0}}')
+          echo "reference=$reference" >> "$GITHUB_OUTPUT"
+
+      - name: Record deployment image
+        env:
+          IMAGE_REFERENCE: ${{ steps.publish.outputs.reference }}
+        run: echo "Deploy image $IMAGE_REFERENCE" >> "$GITHUB_STEP_SUMMARY"

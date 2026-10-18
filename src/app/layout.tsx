@@ -50,6 +50,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <MotionProvider>
       <html lang="en" suppressHydrationWarning>
+        <head>
+          <script defer src="https://cloud.umami.is/script.js" data-website-id="2e128bcd-524e-4de2-abba-f4614f5c4202" />
+        </head>
         <body className={`${outfit.variable} ${montserratMono.variable} ${firaCode.variable} antialiased`}>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
             {children}

@@ -3,6 +3,7 @@ import path from 'path';
 import { withContentCollections } from '@content-collections/next';
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
   reactCompiler: true,
   async headers() {
     return [
