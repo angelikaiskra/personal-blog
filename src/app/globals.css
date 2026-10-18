@@ -96,6 +96,11 @@
 }
 
 @theme {
+  --color-menu-light: #e9eaec;
+  --color-menu-dark: #1e1e1e;
+  --color-menu-muted: #555765;
+  --color-menu-cream: #f5f0e6;
+
   --animate-sparkle: sparkle 1.6s ease-in-out forwards;
 
   @keyframes sparkle {

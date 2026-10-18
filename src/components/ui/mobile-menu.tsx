@@ -2,10 +2,9 @@
 
 import { navigationLinks, socialLinks } from '@/config/links';
 import { cn } from '@/lib/utils';
+import Image from 'next/image';
 import Link from 'next/link';
 import { type Dispatch, type SetStateAction, useEffect } from 'react';
-
-import { ThemeToggle } from './theme-toggle';
 
 type MobileMenuProps = {
   isOpen: boolean;
@@ -31,24 +30,31 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
         aria-expanded={isOpen}
         aria-controls="mobile-menu-panels"
         onClick={() => setIsOpen((open) => !open)}
-        className="relative z-50 inline-flex h-10 items-center gap-3 rounded-md border border-white px-4 font-sans text-sm tracking-normal text-white uppercase mix-blend-difference transition-colors hover:bg-white/10"
+        className={cn(
+          'relative z-50 inline-flex size-11 items-center justify-center rounded-md bg-transparent transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current motion-reduce:transition-none',
+          isOpen
+            ? 'text-menu-light hover:bg-white/10 hover:text-white'
+            : 'text-muted-fg hover:bg-muted hover:text-foreground dark:text-foreground dark:hover:bg-muted-hover dark:hover:text-menu-cream',
+        )}
       >
-        <span>Menu</span>
-        <span id="burger-lines" className="flex h-4 w-8 flex-col justify-between" aria-hidden="true">
+        <span className="relative flex size-7 items-center justify-center" aria-hidden="true">
           <span
-            className={cn('h-0.5 rounded-full bg-current transition-transform duration-300 ease-out', {
-              'translate-y-[7px] rotate-45': isOpen,
-            })}
+            className={cn(
+              'absolute h-0.5 w-4 rounded-full bg-current transition-transform duration-200 ease-out motion-reduce:transition-none',
+              isOpen ? 'scale-x-125 rotate-45' : '-translate-y-1.5',
+            )}
           />
           <span
-            className={cn('h-0.5 rounded-full bg-current transition-opacity duration-200 ease-out', {
-              'opacity-0': isOpen,
-            })}
+            className={cn(
+              'absolute h-0.5 w-4 rounded-full bg-current transition-opacity duration-200 ease-out motion-reduce:transition-none',
+              isOpen ? 'opacity-0' : 'opacity-100',
+            )}
           />
           <span
-            className={cn('h-0.5 rounded-full bg-current transition-transform duration-300 ease-out', {
-              '-translate-y-[7px] -rotate-45': isOpen,
-            })}
+            className={cn(
+              'absolute h-0.5 w-4 rounded-full bg-current transition-transform duration-200 ease-out motion-reduce:transition-none',
+              isOpen ? 'scale-x-125 -rotate-45' : 'translate-y-1.5',
+            )}
           />
         </span>
       </button>
@@ -56,7 +62,7 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
       <div
         id="mobile-menu-panels"
         className={cn(
-          'fixed inset-0 z-40 transition-[visibility] duration-0',
+          'fixed inset-x-0 top-0 z-40 h-dvh overflow-hidden transition-[visibility] duration-0',
           isOpen ? 'visible' : 'invisible delay-500',
         )}
       >
@@ -65,7 +71,7 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
           aria-label="Close menu"
           onClick={() => setIsOpen(false)}
           className={cn(
-            'absolute inset-0 z-0 bg-foreground transition-opacity duration-500 ease-out',
+            'absolute inset-0 z-0 bg-menu-dark transition-opacity duration-500 ease-out',
             isOpen ? 'opacity-100' : 'opacity-0',
           )}
         />
@@ -74,7 +80,7 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
           id="black-opacity"
           aria-hidden="true"
           className={cn(
-            'pointer-events-none absolute inset-0 z-10 bg-foreground opacity-0 transition-opacity duration-300 ease-out',
+            'pointer-events-none absolute inset-0 z-10 bg-menu-dark transition-opacity duration-300 ease-out',
             isOpen ? 'opacity-70' : 'opacity-0',
           )}
         />
@@ -82,37 +88,42 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
         <div
           id="dark-panel"
           className={cn(
-            'absolute top-0 left-0 z-20 h-2/3 w-full rounded-2xl border border-black bg-foreground transition-transform duration-500 ease-[cubic-bezier(0.77,0,0.175,1)] dark:border-border',
+            'absolute top-0 left-0 z-20 h-2/3 w-full rounded-2xl border border-black bg-menu-dark transition-transform duration-500 ease-[cubic-bezier(0.77,0,0.175,1)] [@media(max-height:749px)]:h-3/5',
             isOpen ? 'translate-x-0 delay-100' : '-translate-x-full delay-0',
           )}
         >
-          <nav className="pt-32 pl-6">
+          <nav className="pt-32 pl-6 [@media(max-height:749px)]:pt-26">
             <ul className="space-y-6">
               {navigationLinks.map((link) => (
                 <li key={link.href}>
                   <Link
                     href={link.href}
                     onClick={() => setIsOpen(false)}
-                    className="font-heading text-4xl font-bold tracking-tight text-muted"
+                    className="font-heading text-4xl font-bold tracking-tight text-menu-light"
                   >
                     {link.label}
                   </Link>
                 </li>
               ))}
             </ul>
-            <ThemeToggle className="mt-10 -ml-3 text-muted hover:bg-muted/10 hover:text-background" />
           </nav>
+          <div
+            className="pointer-events-none absolute right-4 bottom-3 h-[40%] max-h-56 w-[52%] max-w-52"
+            aria-hidden="true"
+          >
+            <Image src="/cat-menu.png" alt="" fill sizes="208px" className="object-contain object-bottom-right" />
+          </div>
         </div>
 
         <div
           id="light-panel"
           className={cn(
-            'absolute top-2/3 right-0 z-20 h-1/3 w-full rounded-2xl border border-black bg-muted transition-transform duration-500 ease-[cubic-bezier(0.77,0,0.175,1)] dark:border-border',
+            'absolute top-2/3 right-0 z-20 h-1/3 w-full rounded-2xl border border-black bg-menu-light transition-transform duration-500 ease-[cubic-bezier(0.77,0,0.175,1)] [@media(max-height:749px)]:top-3/5 [@media(max-height:749px)]:h-2/5',
             isOpen ? 'translate-x-0 delay-100' : 'translate-x-full delay-0',
           )}
         >
-          <nav className="pt-8 pl-6">
-            <ul className="space-y-4">
+          <nav className="pt-8 pl-6 [@media(max-height:749px)]:pt-6">
+            <ul className="space-y-4 [@media(max-height:749px)]:space-y-3">
               {socialLinks.map((link) => {
                 const Icon = link.icon;
 
@@ -123,7 +134,7 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
                       target={link.external ? '_blank' : undefined}
                       rel={link.external ? 'noopener noreferrer' : undefined}
                       onClick={() => setIsOpen(false)}
-                      className="inline-flex items-center gap-3 font-sans text-lg whitespace-nowrap text-foreground transition-colors hover:text-muted-fg"
+                      className="inline-flex items-center gap-3 font-sans text-lg whitespace-nowrap text-menu-dark transition-colors hover:text-menu-muted"
                     >
                       <Icon className="size-8" />
                       <span>{link.label}</span>

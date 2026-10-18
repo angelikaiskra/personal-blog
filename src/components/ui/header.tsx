@@ -19,7 +19,7 @@ export function Header() {
   return (
     <header
       className={cn(
-        'sticky top-0 z-40 w-full border-b bg-background transition-colors duration-150 ease-out',
+        'sticky top-0 z-60 w-full border-b bg-background transition-colors duration-150 ease-out',
         isScrolled ? 'border-black dark:border-border' : 'border-transparent',
       )}
     >
@@ -29,7 +29,10 @@ export function Header() {
           <Heading variant="body">Angela Iskra</Heading>
         </Link>
 
-        <MobileMenu isOpen={isMobileMenuOpen} setIsOpen={setIsMobileMenuOpen} />
+        <div className="flex items-center gap-1 sm:hidden">
+          <ThemeToggle className={cn('relative z-50 h-11 w-11', isMobileMenuOpen && 'invisible')} />
+          <MobileMenu isOpen={isMobileMenuOpen} setIsOpen={setIsMobileMenuOpen} />
+        </div>
 
         <nav className="hidden items-center gap-x-10 sm:flex">
           {navigationLinks.map((link) => (
@@ -56,7 +59,7 @@ function Avatar({ isMobileMenuOpen }: { isMobileMenuOpen: boolean }) {
       width={48}
       height={48}
       className={cn(
-        'relative z-[60] rounded-full transition-[filter] duration-500 ease-[cubic-bezier(0.77,0,0.175,1)]',
+        'relative z-60 rounded-full transition-[filter] duration-500 ease-[cubic-bezier(0.77,0,0.175,1)]',
         isMobileMenuOpen ? 'contrast-125 grayscale' : 'contrast-100 grayscale-0 delay-0',
       )}
     />
