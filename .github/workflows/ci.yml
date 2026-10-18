@@ -140,6 +140,39 @@ jobs:
     permissions:
       id-token: write
     steps:
+      - name: Inspect AWS OIDC claims
+        shell: bash
+        env:
+          DEPLOY_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+        run: |
+          node --input-type=module <<'NODE'
+          const requestUrl = process.env.ACTIONS_ID_TOKEN_REQUEST_URL;
+          const requestToken = process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
+          if (!requestUrl || !requestToken) {
+            throw new Error('GitHub OIDC request credentials are unavailable');
+          }
+
+          const url = new URL(requestUrl);
+          url.searchParams.set('audience', 'sts.amazonaws.com');
+          const response = await fetch(url, {
+            headers: { Authorization: `Bearer ${requestToken}` },
+            signal: AbortSignal.timeout(15000),
+          });
+          if (!response.ok) {
+            throw new Error(`OIDC request failed with HTTP ${response.status}`);
+          }
+
+          const { value } = await response.json();
+          const claims = JSON.parse(Buffer.from(value.split('.')[1], 'base64url').toString('utf8'));
+          console.log(JSON.stringify({
+            role: process.env.DEPLOY_ROLE_ARN,
+            aud: claims.aud,
+            sub: claims.sub,
+            ref: claims.ref,
+            environment: claims.environment,
+          }, null, 2));
+          NODE
+
       - name: Assume production AWS role
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
