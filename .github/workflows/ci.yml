@@ -16,17 +16,17 @@ concurrency:
 jobs:
   checks:
     name: Check Docker image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
 
-      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Build and check production image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           platforms: linux/amd64
@@ -74,7 +74,7 @@ jobs:
 
       - name: Upload checked image
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: blog-image
           path: ${{ runner.temp }}/blog-image.tar
@@ -86,14 +86,14 @@ jobs:
     name: Publish Docker image
     needs: checks
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       contents: read
       packages: write
     steps:
       - name: Download checked image
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: blog-image
           path: ${{ runner.temp }}
@@ -102,7 +102,7 @@ jobs:
         run: docker load --input "$RUNNER_TEMP/blog-image.tar"
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -129,3 +129,55 @@ jobs:
         env:
           IMAGE_REFERENCE: ${{ steps.publish.outputs.reference }}
         run: echo "Deploy image $IMAGE_REFERENCE" >> "$GITHUB_STEP_SUMMARY"
+
+  verify_deployment_access:
+    name: Verify production access
+    needs: publish
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: production
+    permissions:
+      id-token: write
+    steps:
+      - name: Assume production AWS role
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: eu-central-1
+          allowed-account-ids: '796310349380'
+          role-duration-seconds: 900
+          role-session-name: blog-ci-${{ github.run_id }}
+          retry-max-attempts: 3
+
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity --query Arn --output text
+
+      - name: Check restricted deployment SSH connection
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          : "${DEPLOY_HOST:?Missing DEPLOY_HOST variable}"
+          : "${SSH_PRIVATE_KEY:?Missing DEPLOY_SSH_KEY secret}"
+          : "${SSH_KNOWN_HOSTS:?Missing DEPLOY_KNOWN_HOSTS secret}"
+
+          umask 077
+          ssh_dir=$(mktemp -d "$RUNNER_TEMP/blog-deploy-ssh.XXXXXX")
+          trap 'rm -f -- "$ssh_dir/key" "$ssh_dir/known_hosts"; rmdir -- "$ssh_dir"' EXIT
+          printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > "$ssh_dir/key"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" | tr -d '\r' > "$ssh_dir/known_hosts"
+
+          timeout 60s ssh -F /dev/null -T \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$ssh_dir/known_hosts" \
+            -o GlobalKnownHostsFile=/dev/null \
+            -o IdentitiesOnly=yes \
+            -o IdentityAgent=none \
+            -o HostKeyAlgorithms=ssh-ed25519 \
+            -i "$ssh_dir/key" \
+            "blog-deploy@$DEPLOY_HOST" check
