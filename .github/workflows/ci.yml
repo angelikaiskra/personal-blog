@@ -136,7 +136,7 @@ jobs:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    environment: production
+    environment: prod
     permissions:
       id-token: write
     steps:
