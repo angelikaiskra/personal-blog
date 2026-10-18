@@ -32,7 +32,7 @@ function CatPoster() {
   return (
     <>
       <Image
-        src="/cat-light.webp"
+        src="/cat-light-fallback.webp"
         alt=""
         fill
         unoptimized
@@ -40,7 +40,7 @@ function CatPoster() {
         className="object-contain dark:hidden"
       />
       <Image
-        src="/cat-dark.webp"
+        src="/cat-dark-fallback.webp"
         alt=""
         fill
         unoptimized

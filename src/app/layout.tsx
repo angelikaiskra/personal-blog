@@ -34,6 +34,13 @@ export const metadata: Metadata = {
   authors: [{ name: siteConfig.author, url: new URL('/about', siteConfig.url).href }],
   creator: siteConfig.author,
   metadataBase: new URL(siteConfig.url),
+  icons: {
+    icon: [
+      { url: '/favicon-192.png', type: 'image/png', sizes: '192x192' },
+      { url: '/favicon-512.png', type: 'image/png', sizes: '512x512' },
+    ],
+    apple: [{ url: '/favicon-mask.png', type: 'image/png', sizes: '512x512' }],
+  },
   alternates: {
     types: { 'application/rss+xml': '/rss.xml' },
   },
