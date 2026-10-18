@@ -1,11 +1,12 @@
 'use client';
 
 import { ContactShadows } from '@react-three/drei';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { addAfterEffect, Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useTheme } from 'next-themes';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { createCatDriver } from './cat-driver';
+import { CAT_TOUCH, createCatTouchInput, type CatTouchTarget } from './cat-touch-input';
 import { createVoxelCatModel, type VoxelCatModel } from './create-voxel-cat-model';
 
 /** Near-parallel reference edges: approximately 27° yaw and 18° elevation. */
@@ -16,17 +17,31 @@ const DISTANCE = 30;
 /** Fraction of the panel the cat is allowed to fill. */
 const FILL = 0.81;
 
-function VoxelCatScene({ model, bounds }: { model: VoxelCatModel; bounds: THREE.Box3 }) {
+type CatCanvasProps = {
+  onTouchTargetChange: (target: CatTouchTarget | null) => void;
+  onReadyChange: (ready: boolean) => void;
+};
+
+function VoxelCatScene({
+  model,
+  bounds,
+  onTouchTargetChange,
+  onReadyChange,
+}: { model: VoxelCatModel; bounds: THREE.Box3 } & CatCanvasProps) {
   const animation = useRef<{
     cat: ReturnType<typeof createCatDriver>;
     pointer: { clientX: number; clientY: number; active: boolean };
+    touchTarget: CatTouchTarget | null;
     /** Last measured canvas box; null means "measure again on the next frame that needs it". */
     rect: DOMRect | null;
     running: boolean;
+    rendered: boolean;
+    ready: boolean;
   } | null>(null);
 
   const invalidate = useThree((state) => state.invalidate);
   const canvas = useThree((state) => state.gl.domElement);
+  const camera = useThree((state) => state.camera);
   const viewport = useThree((state) => state.viewport);
   const { resolvedTheme } = useTheme();
 
@@ -57,14 +72,44 @@ function VoxelCatScene({ model, bounds }: { model: VoxelCatModel; bounds: THREE.
     const state = {
       cat,
       pointer: { clientX: 0, clientY: 0, active: false },
+      touchTarget: null as CatTouchTarget | null,
       rect: null as DOMRect | null,
       running: false,
+      rendered: false,
+      ready: false,
     };
     animation.current = state;
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
     let visible = false;
     let reduced = media.matches;
     let lost = false;
+
+    const touch = createCatTouchInput({
+      acceptTap: ({ pageX, pageY }) => {
+        if (!state.running || !state.ready) return false;
+        const clientX = pageX - window.scrollX;
+        const clientY = pageY - window.scrollY;
+        const rect = (state.rect = canvas.getBoundingClientRect());
+        return (
+          rect.width > 0 &&
+          rect.height > 0 &&
+          cat.isPointerNear(
+            ((clientX - rect.left) / rect.width) * 2 - 1,
+            -((clientY - rect.top) / rect.height) * 2 + 1,
+            rect.width,
+            rect.height,
+            camera,
+            CAT_TOUCH.radius,
+          )
+        );
+      },
+      onTargetChange: (target) => {
+        state.touchTarget = target;
+        state.pointer.active = false;
+        if (!target) cat.clearPointer();
+        onTouchTargetChange(target);
+      },
+    });
 
     const sync = () => {
       if (media.matches !== reduced) {
@@ -75,6 +120,8 @@ function VoxelCatScene({ model, bounds }: { model: VoxelCatModel; bounds: THREE.
         }
       }
       const running = visible && !document.hidden && !reduced && !lost;
+      // Scrolling offscreen pauses rendering; the touch target keeps its original expiry.
+      if (document.hidden || reduced || lost) touch.clear();
       if (running !== state.running) {
         state.running = running;
         cat.resume();
@@ -90,29 +137,50 @@ function VoxelCatScene({ model, bounds }: { model: VoxelCatModel; bounds: THREE.
     // The hero is `pointer-events-none`, so the canvas sees no pointer events of its own —
     // the window is the only source.
     const track = (event: PointerEvent) => {
+      if (event.pointerType === 'touch') return;
+      touch.clear();
       state.pointer.clientX = event.clientX;
       state.pointer.clientY = event.clientY;
       state.pointer.active = true;
     };
     const forget = () => {
+      touch.clear();
       state.pointer.active = false;
       cat.clearPointer();
     };
     const release = (event: PointerEvent) => {
-      // A finger that has lifted is nowhere; a mouse that has clicked is still on screen.
-      if (event.pointerType !== 'mouse') forget();
+      // Touch targets outlive the gesture; keep the existing pen release behavior.
+      if (event.pointerType !== 'mouse' && event.pointerType !== 'touch') forget();
+    };
+    const leave = (event: PointerEvent) => {
+      // Touch pointerleave follows pointerup and must not cancel a freshly accepted tap.
+      if (event.pointerType !== 'touch') forget();
+    };
+    const cancel = (event: PointerEvent) => {
+      // Touch cancellation only rejects the pending gesture; scrolling keeps its target.
+      if (event.pointerType !== 'touch') forget();
     };
     // Three preventDefaults the loss and rebuilds GL state on restore, but a demand loop has
     // no pending frame left to draw with — without this the hero stays blank for good.
     const onLost = () => {
       lost = true;
+      state.ready = state.rendered = false;
+      onReadyChange(false);
       sync();
     };
     const onRestored = () => {
       lost = false;
       remeasure();
       sync();
+      invalidate();
     };
+    // Runs after this canvas and ContactShadows have rendered. A different cat's
+    // frame must not reveal this canvas, and reduced motion still needs the first draw.
+    const stopWatchingFrames = addAfterEffect(() => {
+      if (!state.rendered || state.ready || lost) return;
+      state.ready = true;
+      onReadyChange(true);
+    });
     const observer = new IntersectionObserver(([entry]) => {
       visible = entry.isIntersecting && entry.intersectionRatio > 0;
       remeasure();
@@ -127,8 +195,8 @@ function VoxelCatScene({ model, bounds }: { model: VoxelCatModel; bounds: THREE.
     window.addEventListener('pointermove', track, { passive: true });
     window.addEventListener('pointerdown', track, { passive: true });
     window.addEventListener('pointerup', release, { passive: true });
-    window.addEventListener('pointercancel', forget, { passive: true });
-    document.addEventListener('pointerleave', forget);
+    window.addEventListener('pointercancel', cancel, { passive: true });
+    document.addEventListener('pointerleave', leave);
     window.addEventListener('blur', forget);
     window.addEventListener('resize', remeasure, { passive: true });
     // Capturing, so a scroll inside any ancestor counts, not just the document's own.
@@ -139,6 +207,8 @@ function VoxelCatScene({ model, bounds }: { model: VoxelCatModel; bounds: THREE.
     invalidate();
 
     return () => {
+      stopWatchingFrames();
+      touch.dispose();
       observer.disconnect();
       resizes.disconnect();
       document.removeEventListener('visibilitychange', sync);
@@ -146,8 +216,8 @@ function VoxelCatScene({ model, bounds }: { model: VoxelCatModel; bounds: THREE.
       window.removeEventListener('pointermove', track);
       window.removeEventListener('pointerdown', track);
       window.removeEventListener('pointerup', release);
-      window.removeEventListener('pointercancel', forget);
-      document.removeEventListener('pointerleave', forget);
+      window.removeEventListener('pointercancel', cancel);
+      document.removeEventListener('pointerleave', leave);
       window.removeEventListener('blur', forget);
       window.removeEventListener('resize', remeasure);
       window.removeEventListener('scroll', remeasure, { capture: true });
@@ -157,19 +227,25 @@ function VoxelCatScene({ model, bounds }: { model: VoxelCatModel; bounds: THREE.
       cat.reset();
       animation.current = null;
     };
-  }, [canvas, invalidate, model]);
+  }, [camera, canvas, invalidate, model, onReadyChange, onTouchTargetChange]);
 
   useFrame(({ camera }, delta) => {
     const state = animation.current;
-    if (!state?.running) return;
+    if (!state) return;
+    state.rendered = true;
+    // Render the neutral pose underneath the matching image before starting animation.
+    if (!state.ready || !state.running) return;
     // Coalesces pointer events into one projection per frame.
-    const { pointer, cat } = state;
-    if (pointer.active) {
+    const { pointer, touchTarget, cat } = state;
+    if (touchTarget || pointer.active) {
       const rect = (state.rect ??= canvas.getBoundingClientRect());
       if (rect.width && rect.height) {
+        // Mouse coordinates follow the viewport; touch targets stay at their document position.
+        const clientX = touchTarget ? touchTarget.pageX - window.scrollX : pointer.clientX;
+        const clientY = touchTarget ? touchTarget.pageY - window.scrollY : pointer.clientY;
         cat.setPointer(
-          ((pointer.clientX - rect.left) / rect.width) * 2 - 1,
-          -((pointer.clientY - rect.top) / rect.height) * 2 + 1,
+          ((clientX - rect.left) / rect.width) * 2 - 1,
+          -((clientY - rect.top) / rect.height) * 2 + 1,
           rect.width,
           rect.height,
         );
@@ -203,7 +279,7 @@ function VoxelCatScene({ model, bounds }: { model: VoxelCatModel; bounds: THREE.
   );
 }
 
-export function VoxelCatCanvas() {
+export function VoxelCatCanvas({ onTouchTargetChange, onReadyChange }: CatCanvasProps) {
   // Built during render rather than in an effect so the cat is in the scene on the very first
   // frame — ContactShadows only bakes once, and would otherwise bake an empty floor.
   const model = useMemo(() => {
@@ -269,7 +345,12 @@ export function VoxelCatCanvas() {
       {/* Low frontal fill reaches the throat beneath the oversized head. */}
       <directionalLight color="#ffffff" intensity={0.7} position={[5, 2, 2]} />
 
-      <VoxelCatScene model={model} bounds={bounds} />
+      <VoxelCatScene
+        model={model}
+        bounds={bounds}
+        onTouchTargetChange={onTouchTargetChange}
+        onReadyChange={onReadyChange}
+      />
     </Canvas>
   );
 }

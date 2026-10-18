@@ -72,7 +72,7 @@ export function createCatInteraction(model: VoxelCatModel) {
     active = true;
   }
 
-  /** The pointer left the window, or a touch ended: the cat has nothing to watch. */
+  /** The pointer left the window, or a touch target expired: nothing left to watch. */
   function clearPointer() {
     active = false;
   }
@@ -84,10 +84,16 @@ export function createCatInteraction(model: VoxelCatModel) {
   }
 
   /** How far the cursor is from the cat's face on screen, in CSS pixels. */
-  function distanceOnScreen(camera: THREE.Camera) {
+  function distanceOnScreen(camera: THREE.Camera, x: number, y: number, width: number, height: number) {
     screen.copy(anchor).applyMatrix4(group.matrixWorld).project(camera);
     // Clip space spans the canvas from -1 to 1, so half its size converts a delta to pixels.
-    return Math.hypot(((pointer.x - screen.x) * viewport.x) / 2, ((pointer.y - screen.y) * viewport.y) / 2);
+    return Math.hypot(((x - screen.x) * width) / 2, ((y - screen.y) * height) / 2);
+  }
+
+  /** Checks a tap without changing the current pointer or its enter/exit hysteresis. */
+  function isPointerNear(x: number, y: number, width: number, height: number, camera: THREE.Camera, radius: number) {
+    group.updateWorldMatrix(true, false);
+    return distanceOnScreen(camera, x, y, width, height) < radius;
   }
 
   /** Writes the cursor's position in model blocks into `target`; false if there is none. */
@@ -102,7 +108,10 @@ export function createCatInteraction(model: VoxelCatModel) {
     if (!Number.isFinite(deltaSeconds) || deltaSeconds < 0) return pose;
     const watch = CAT_INTERACTION.watch;
     if (active) group.updateWorldMatrix(true, false);
-    const near = active && distanceOnScreen(camera) < (pose.state === 'idle' ? watch.enter : watch.exit);
+    const near =
+      active &&
+      distanceOnScreen(camera, pointer.x, pointer.y, viewport.x, viewport.y) <
+        (pose.state === 'idle' ? watch.enter : watch.exit);
     pose.state = near ? 'watching' : 'idle';
 
     let yaw = 0;
@@ -137,5 +146,5 @@ export function createCatInteraction(model: VoxelCatModel) {
     return pose;
   }
 
-  return { setPointer, clearPointer, update, reset };
+  return { setPointer, clearPointer, isPointerNear, update, reset };
 }

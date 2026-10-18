@@ -21,7 +21,7 @@ export function HomeView() {
   return (
     <MaxWidthContainer className="pb-20">
       <section className="mt-15 sm:mt-20">
-        <div className="grid items-center gap-y-8 md:grid-cols-[minmax(0,590px)_minmax(260px,1fr)] md:gap-x-8 lg:gap-x-14">
+        <div className="grid items-center gap-y-12 md:grid-cols-[minmax(0,590px)_minmax(260px,1fr)] md:gap-x-8 lg:gap-x-14">
           <div className="flex max-w-[455px] flex-col gap-y-5 max-sm:mx-auto max-sm:items-center max-sm:text-center sm:max-w-[590px] sm:gap-y-10">
             <div className="relative flex items-center gap-x-2 max-sm:justify-center">
               <Heading variant="h1" as="h1" className="sm:text-5xl">
@@ -49,7 +49,7 @@ export function HomeView() {
         </div>
       </section>
 
-      <div className="mt-20 flex flex-wrap justify-between gap-x-20 sm:mt-24 md:flex-nowrap">
+      <div className="mt-12 flex flex-wrap justify-between gap-x-20 sm:mt-24 md:flex-nowrap">
         <section>
           <Heading as="h2" variant="h1">
             Latest posts
@@ -93,7 +93,7 @@ export function HomeView() {
           </div> */}
         </section>
 
-        <aside className="max-md:mt-18">
+        <aside className="max-md:mt-8">
           <Heading as="h2" variant="h1">
             Categories
           </Heading>
