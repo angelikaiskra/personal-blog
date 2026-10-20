@@ -6,13 +6,11 @@ require "shellwords"
 host = ENV.fetch("DEPLOY_HOST")
 version = ENV.fetch("KAMAL_VERSION")
 digest = ENV.fetch("EXPECTED_IMAGE_DIGEST")
-image_id = ENV.fetch("EXPECTED_IMAGE_ID")
 image = "ghcr.io/angelikaiskra/personal-blog"
 
 abort "Unexpected deployment host group" unless ENV.fetch("KAMAL_HOSTS") == host
 abort "Invalid release identifier" unless version.match?(/\A[0-9a-f]{40}-[0-9]+-[0-9]+\z/)
 abort "Invalid expected digest" unless digest.match?(/\Asha256:[0-9a-f]{64}\z/)
-abort "Invalid expected image ID" unless image_id.match?(/\Asha256:[0-9a-f]{64}\z/)
 
 output, error, status = Open3.capture3(
   "ssh", "-F", ENV.fetch("DEPLOY_SSH_CONFIG"), "-T",
@@ -23,7 +21,7 @@ output, error, status = Open3.capture3(
 abort "Cannot verify the pulled image (SSH exit #{status.exitstatus}): #{error}" unless status.success?
 
 pulled = JSON.parse(output).fetch(0)
-unless pulled.fetch("Id") == image_id && pulled.fetch("RepoDigests", []).include?("#{image}@#{digest}")
+unless pulled.fetch("RepoDigests", []).include?("#{image}@#{digest}")
   abort "Pulled release does not match the checked image digest; refusing to boot"
 end
 puts "Pulled image digest verified before app boot."

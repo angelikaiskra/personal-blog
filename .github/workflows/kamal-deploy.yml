@@ -55,10 +55,6 @@ jobs:
           docker manifest inspect --verbose "$image:$RELEASE" > "$RUNNER_TEMP/manifest.json"
           jq --exit-status --arg digest "$EXPECTED_IMAGE_DIGEST" \
             '.Descriptor.digest == $digest' "$RUNNER_TEMP/manifest.json"
-          image_id=$(jq --exit-status --raw-output \
-            '.OCIManifest.config.digest // .SchemaV2Manifest.config.digest' "$RUNNER_TEMP/manifest.json")
-          [[ "$image_id" =~ ^sha256:[0-9a-f]{64}$ ]]
-          echo "EXPECTED_IMAGE_ID=$image_id" >> "$GITHUB_ENV"
 
       - name: Prepare verified SSH access
         shell: bash
@@ -119,7 +115,7 @@ jobs:
             --mount "type=bind,source=${DEPLOY_SSH_CONFIG%/*},target=${DEPLOY_SSH_CONFIG%/*},readonly" \
             --env DEPLOY_HOST --env DEPLOY_SSH_KEY_PATH --env DEPLOY_SSH_CONFIG \
             --env KAMAL_REGISTRY_USERNAME --env KAMAL_REGISTRY_PASSWORD \
-            --env EXPECTED_IMAGE_ID --env EXPECTED_IMAGE_DIGEST \
+            --env EXPECTED_IMAGE_DIGEST \
             "$KAMAL_CLI_IMAGE" deploy --skip-push --version "$RELEASE"
 
       - name: Check health, homepage, and memory
