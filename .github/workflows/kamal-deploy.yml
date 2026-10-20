@@ -19,7 +19,7 @@ jobs:
   deploy:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     environment: prod
     concurrency:
       group: blog-production
@@ -27,8 +27,12 @@ jobs:
     permissions:
       contents: read
       packages: read
+      id-token: write
     env:
       DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+      CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+      AWS_MAX_ATTEMPTS: 3
+      AWS_RETRY_MODE: standard
       RELEASE: ${{ inputs.release }}
       EXPECTED_IMAGE_DIGEST: ${{ inputs.digest }}
       KAMAL_REGISTRY_USERNAME: ${{ github.actor }}
@@ -51,10 +55,21 @@ jobs:
           [[ "$RELEASE" =~ ^[0-9a-f]{40}-[0-9]+-[0-9]+$ ]]
           [[ "$EXPECTED_IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
           [[ "$DEPLOY_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]
+          [[ "$CLOUDFRONT_DISTRIBUTION_ID" == E24ANBKSF64XTD ]]
           image=ghcr.io/angelikaiskra/personal-blog
           docker manifest inspect --verbose "$image:$RELEASE" > "$RUNNER_TEMP/manifest.json"
           jq --exit-status --arg digest "$EXPECTED_IMAGE_DIGEST" \
             '.Descriptor.digest == $digest' "$RUNNER_TEMP/manifest.json"
+
+      - name: Assume production AWS role before deployment
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: eu-central-1
+          allowed-account-ids: '796310349380'
+          role-duration-seconds: 900
+          role-session-name: blog-deploy-${{ github.run_id }}
+          retry-max-attempts: 3
 
       - name: Prepare verified SSH access
         shell: bash
@@ -78,21 +93,27 @@ jobs:
           echo "DEPLOY_SSH_KEY_PATH=$ssh_dir/key" >> "$GITHUB_ENV"
           echo "DEPLOY_SSH_CONFIG=$ssh_dir/config" >> "$GITHUB_ENV"
 
-      - name: Verify Compose still owns the Caddy upstream
+      - name: Verify the live Kamal upstream and record the previous release
         shell: bash
         run: |
           timeout 30s ssh -F "$DEPLOY_SSH_CONFIG" -T -i "$DEPLOY_SSH_KEY_PATH" \
             "blog-deploy@$DEPLOY_HOST" 'curl --fail --silent --show-error --max-time 10 http://127.0.0.1:2019/config/' | \
             jq --exit-status '[.. | objects | select(.handler? == "reverse_proxy") | .upstreams[]?.dial] as $upstreams |
-              ($upstreams | length) > 0 and all($upstreams[]; . == "127.0.0.1:3000" or . == "localhost:3000")'
+              ($upstreams | length) > 0 and all($upstreams[]; . == "127.0.0.1:8080" or . == "localhost:8080")'
+          previous_health=$(timeout 30s ssh -F "$DEPLOY_SSH_CONFIG" -T -i "$DEPLOY_SSH_KEY_PATH" \
+            "blog-deploy@$DEPLOY_HOST" 'curl --fail --silent --show-error --max-time 15 -H "Host: angelaiskra.com" http://127.0.0.1:8080/api/health')
+          previous_release=$(jq --exit-status --raw-output 'select(.status == "ok") | .release' <<< "$previous_health")
+          [[ "$previous_release" =~ ^[0-9a-f]{40}-[0-9]+-[0-9]+$ ]]
+          echo "PREVIOUS_RELEASE=$previous_release" >> "$GITHUB_ENV"
           timeout 60s ssh -F "$DEPLOY_SSH_CONFIG" -T -i "$DEPLOY_SSH_KEY_PATH" \
-            "blog-deploy@$DEPLOY_HOST" 'python3 -' <<'PY'
+            "blog-deploy@$DEPLOY_HOST" "python3 - '$previous_release'" <<'PY'
           import json
           import shutil
           import subprocess
-          compose = json.loads(subprocess.check_output(['docker', 'inspect', 'blog-blog-1']))[0]
-          if not compose['State']['Running'] or compose['State'].get('OOMKilled'):
-              raise SystemExit('Compose fallback is not running normally.')
+          import sys
+          current = json.loads(subprocess.check_output(['docker', 'inspect', f'blog-web-{sys.argv[1]}']))[0]
+          if not current['State']['Running'] or current['State'].get('OOMKilled'):
+              raise SystemExit('Current Kamal release is not running normally.')
           if shutil.disk_usage('/').free < 1024 ** 3:
               raise SystemExit('Less than 1 GiB free disk space; inspect before pulling images.')
           mem = {line.split(':')[0]: int(line.split()[1]) for line in open('/proc/meminfo')}
@@ -100,12 +121,8 @@ jobs:
               raise SystemExit('Available memory is below 15%; inspect before starting another container.')
           subprocess.run(['free', '-m'], check=True)
           subprocess.run(['df', '-h', '/'], check=True)
-          print('Caddy still serves Compose. Fallback image:', compose['Image'])
+          print('Current Kamal image retained for recovery:', current['Image'])
           PY
-          restarts=$(ssh -F "$DEPLOY_SSH_CONFIG" -T -i "$DEPLOY_SSH_KEY_PATH" \
-            "blog-deploy@$DEPLOY_HOST" "docker inspect blog-blog-1 --format '{{.RestartCount}}'")
-          [[ "$restarts" =~ ^[0-9]+$ ]]
-          echo "BASELINE_COMPOSE_RESTARTS=$restarts" >> "$GITHUB_ENV"
 
       - name: Deploy checked image behind the loopback proxy
         shell: bash
@@ -122,7 +139,7 @@ jobs:
         shell: bash
         run: |
           timeout 180s ssh -F "$DEPLOY_SSH_CONFIG" -T -i "$DEPLOY_SSH_KEY_PATH" \
-            "blog-deploy@$DEPLOY_HOST" "python3 - '$RELEASE' '$BASELINE_COMPOSE_RESTARTS'" <<'PY'
+            "blog-deploy@$DEPLOY_HOST" "python3 - '$RELEASE'" <<'PY'
           import json
           import subprocess
           import sys
@@ -142,21 +159,64 @@ jobs:
           if json.loads(body) != {'status': 'ok', 'release': release} or 'no-store' not in headers.get('Cache-Control', ''):
               raise SystemExit('Candidate health identity or cache header is incorrect.')
           fetch('/')
-          fetch('/', port=3000)
           mem = {line.split(':')[0]: int(line.split()[1]) for line in open('/proc/meminfo')}
           if mem['MemAvailable'] / mem['MemTotal'] < 0.15:
               raise SystemExit('Available memory is below 15%; inspect capacity before proceeding.')
           candidate = json.loads(subprocess.check_output(['docker', 'inspect', f'blog-web-{release}']))[0]
-          compose = json.loads(subprocess.check_output(['docker', 'inspect', 'blog-blog-1']))[0]
-          for container in (candidate, compose):
-              if not container['State']['Running'] or container['State'].get('OOMKilled'):
-                  raise SystemExit('Unexpected container stop, OOM kill, or restart; inspect before proceeding.')
-          if candidate['RestartCount'] or compose['RestartCount'] != int(sys.argv[2]):
-              raise SystemExit('A container restarted during deployment; inspect before proceeding.')
+          if not candidate['State']['Running'] or candidate['State'].get('OOMKilled'):
+              raise SystemExit('Candidate stopped or was OOM-killed; inspect before proceeding.')
+          if candidate['RestartCount']:
+              raise SystemExit('Candidate restarted; inspect before proceeding.')
           subprocess.run(['free', '-m'], check=True)
           subprocess.run(['df', '-h', '/'], check=True)
           subprocess.run(['docker', 'stats', '--no-stream'], check=True)
           PY
+
+      - name: Refresh AWS credentials for CDN verification
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: eu-central-1
+          allowed-account-ids: '796310349380'
+          role-duration-seconds: 900
+          role-session-name: blog-cdn-${{ github.run_id }}
+          retry-max-attempts: 3
+
+      - name: Invalidate CloudFront and wait for completion
+        shell: bash
+        run: |
+          jq --null-input --arg caller "blog-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            '{Paths: {Quantity: 1, Items: ["/*"]}, CallerReference: $caller}' \
+            > "$RUNNER_TEMP/invalidation.json"
+          invalidation_id=$(aws cloudfront create-invalidation \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --invalidation-batch "file://$RUNNER_TEMP/invalidation.json" \
+            --query Invalidation.Id --output text)
+          [[ "$invalidation_id" =~ ^[a-zA-Z0-9]+$ ]]
+          echo "INVALIDATION_ID=$invalidation_id" >> "$GITHUB_ENV"
+          timeout 600s aws cloudfront wait invalidation-completed \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" --id "$invalidation_id"
+
+      - name: Verify release and homepage through CloudFront
+        shell: bash
+        run: |
+          # Preserve the canonical Host and TLS name while public DNS cutover is pending.
+          curl --fail --silent --show-error --max-time 20 \
+            --retry 2 --retry-all-errors --retry-delay 3 \
+            --connect-to angelaiskra.com:443:d3t6u2jisb5smp.cloudfront.net:443 \
+            --dump-header "$RUNNER_TEMP/cdn-health-headers" \
+            --output "$RUNNER_TEMP/cdn-health.json" \
+            https://angelaiskra.com/api/health
+          jq --exit-status --arg release "$RELEASE" \
+            '.status == "ok" and .release == $release' "$RUNNER_TEMP/cdn-health.json"
+          grep --extended-regexp --ignore-case --quiet \
+            '^cache-control:.*no-store' "$RUNNER_TEMP/cdn-health-headers"
+          response=$(curl --fail --silent --show-error --max-time 30 \
+            --retry 2 --retry-all-errors --retry-delay 3 \
+            --connect-to angelaiskra.com:443:d3t6u2jisb5smp.cloudfront.net:443 \
+            --output /dev/null --write-out '%{http_code} %{content_type}' \
+            https://angelaiskra.com/)
+          [[ "$response" == "200 text/html"* ]]
 
       - name: Record deployment outcome
         if: always()
@@ -165,10 +225,12 @@ jobs:
           RESULT: ${{ job.status }}
         run: |
           {
-            printf 'Initial deployment outcome: %s\n\n' "$RESULT"
+            printf 'Deployment outcome: %s\n\n' "$RESULT"
             printf 'Release: %s\n\nDigest: %s\n\n' "$RELEASE" "$EXPECTED_IMAGE_DIGEST"
             printf 'Configuration commit: %s\n\n' "$GITHUB_SHA"
-            printf '%s\n' 'Public Caddy upstream was not changed. Inspect failed or interrupted runs before retrying.'
+            printf 'Previous release: %s\n\n' "${PREVIOUS_RELEASE:-unknown}"
+            printf 'CloudFront invalidation: %s\n\n' "${INVALIDATION_ID:-not started}"
+            printf '%s\n' 'Kamal owns release switching. Failed or interrupted runs require inspection before retry or native Kamal rollback; CDN failure alone does not trigger rollback.'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Remove temporary SSH material
