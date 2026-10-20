@@ -43,6 +43,7 @@ jobs:
       - name: Check pages and image optimization
         shell: bash
         run: |
+          [[ $(docker image inspect blog:ci --format '{{index .Config.Labels "service"}}') == blog ]]
           docker run --detach --name blog-ci --init \
             --publish 127.0.0.1:3000:3000 \
             --cap-drop ALL --security-opt no-new-privileges \
@@ -186,9 +187,11 @@ jobs:
 
           docker pull "$reference"
           [[ $(docker image inspect "$reference" --format '{{.Id}}') == "$image_id" ]]
-          echo "release=$release" >> "$GITHUB_OUTPUT"
-          echo "image_id=$image_id" >> "$GITHUB_OUTPUT"
-          echo "reference=$reference" >> "$GITHUB_OUTPUT"
+          {
+            echo "release=$release"
+            echo "image_id=$image_id"
+            echo "reference=$reference"
+          } >> "$GITHUB_OUTPUT"
           jq --arg image "$IMAGE" --arg digest "$digest" --arg reference "$reference" \
             '. + {image: $image, digest: $digest, reference: $reference}' \
             "$metadata" > "$RUNNER_TEMP/blog-published-release.json"
