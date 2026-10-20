@@ -3,6 +3,7 @@ node_modules
 .content-collections
 .git
 .github
+.kamal
 .agents
 .codex
 .aws

@@ -4,6 +4,9 @@ import { withContentCollections } from '@content-collections/next';
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  env: {
+    BLOG_RELEASE_ID: process.env.NEXT_DEPLOYMENT_ID || 'development',
+  },
   reactCompiler: true,
   async headers() {
     return [
