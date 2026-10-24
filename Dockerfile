@@ -14,7 +14,7 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 ARG NEXT_DEPLOYMENT_ID=local
-RUN pnpm lint && pnpm build && pnpm typecheck
+RUN pnpm lint && pnpm lint:prettier-check && pnpm build && pnpm typecheck
 
 FROM node:24-bookworm-slim AS runner
 

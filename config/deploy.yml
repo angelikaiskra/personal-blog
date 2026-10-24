@@ -8,6 +8,7 @@ servers:
       - <%= ENV.fetch('DEPLOY_HOST') %>
     options:
       init: true
+      memory: 384m
       cap-drop:
         - ALL
       security-opt:

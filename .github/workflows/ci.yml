@@ -46,7 +46,8 @@ jobs:
 
       - name: Smoke test
         run: |
-          docker run --detach --name blog-ci --publish 127.0.0.1:3000:3000 "$IMAGE"
+          docker run --detach --name blog-ci --init --memory 384m --cap-drop ALL \
+            --security-opt no-new-privileges:true --publish 127.0.0.1:3000:3000 "$IMAGE"
           trap 'docker logs blog-ci' ERR
           for path in / /api/health /blog /rss.xml /sitemap.xml '/_next/image?url=%2Favatar.webp&w=64&q=75'; do
             curl --fail --silent --show-error --output /dev/null \
@@ -101,6 +102,12 @@ jobs:
           echo "DEPLOY_SSH_KEY_PATH=$ssh_dir/key" >> "$GITHUB_ENV"
           echo "DEPLOY_SSH_CONFIG=$ssh_dir/config" >> "$GITHUB_ENV"
 
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: eu-central-1
+          role-duration-seconds: 1800
+
       - name: Deploy
         run: |
           docker run --rm \
@@ -109,12 +116,6 @@ jobs:
             --env DEPLOY_HOST --env DEPLOY_SSH_KEY_PATH --env DEPLOY_SSH_CONFIG \
             --env KAMAL_REGISTRY_USERNAME --env KAMAL_REGISTRY_PASSWORD \
             "$KAMAL_CLI_IMAGE" deploy --skip-push --version "$GITHUB_SHA"
-
-      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
-        with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: eu-central-1
-          role-duration-seconds: 900
 
       - name: Invalidate CloudFront
         env:
