@@ -1,9 +1,8 @@
-import { type LinkProps } from 'next/link';
+import NextLink, { type LinkProps } from 'next/link';
 import { type AnchorHTMLAttributes, type ReactNode } from 'react';
 
 import { ArrowRightIcon } from '@/components/icons/arrow-right-icon';
 import { cn } from '@/lib/utils';
-import { Link } from './link';
 
 export type LinkAnimation = 'underline' | 'arrowSlide';
 
@@ -15,8 +14,12 @@ type AnimatedLinkProps = LinkProps &
 
 export function AnimatedLink({ children, hoverAnimation = 'underline', className, ...props }: AnimatedLinkProps) {
   return (
-    <Link
-      className={cn('group relative', hoverAnimation === 'arrowSlide' && 'items-center gap-x-1.5', className)}
+    <NextLink
+      className={cn(
+        'group relative inline-flex text-[16px] leading-none font-medium text-foreground',
+        hoverAnimation === 'arrowSlide' && 'items-center gap-x-1.5',
+        className,
+      )}
       {...props}
     >
       {children}
@@ -28,6 +31,6 @@ export function AnimatedLink({ children, hoverAnimation = 'underline', className
       {hoverAnimation === 'arrowSlide' && (
         <ArrowRightIcon className="size-5 shrink-0 text-link-accent motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-in-out motion-safe:group-hover:translate-x-1.5 motion-safe:group-focus-visible:translate-x-1.5" />
       )}
-    </Link>
+    </NextLink>
   );
 }

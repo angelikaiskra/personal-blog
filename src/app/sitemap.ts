@@ -24,6 +24,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: siteConfig.url, lastModified, priority: 1 },
     { url: `${siteConfig.url}/blog`, lastModified, priority: 0.9 },
     { url: `${siteConfig.url}/about`, priority: 0.6 },
+    { url: `${siteConfig.url}/privacy-policy`, priority: 0.3 },
     ...categories,
     ...posts,
   ];

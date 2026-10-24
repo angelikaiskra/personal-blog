@@ -50,9 +50,9 @@ proxy:
     bind_ips:
       - 127.0.0.1
     version: v0.9.2
+    log_max_size: ''
     options:
-      log-opt:
-        - max-file=3
+      log-driver: journald
 
 asset_path: /app/.next/static
 retain_containers: 3
