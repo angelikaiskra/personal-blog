@@ -32,16 +32,24 @@ jobs:
           node-version: 24
           cache: pnpm
 
-      - run: pnpm install --frozen-lockfile
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      # Generates .content-collections
-      - run: pnpm validate:content
+      - name: Validate content
+        id: content
+        run: pnpm validate:content
 
-      - run: pnpm lint
+      - name: ESLint
+        if: ${{ !cancelled() && steps.content.outcome == 'success' }}
+        run: pnpm lint
 
-      - run: pnpm lint:prettier-check
+      - name: Prettier
+        if: ${{ !cancelled() && steps.content.outcome == 'success' }}
+        run: pnpm lint:prettier-check
 
-      - run: pnpm typecheck
+      - name: Typecheck
+        if: ${{ !cancelled() && steps.content.outcome == 'success' }}
+        run: pnpm typecheck
 
   build:
     name: Build and check image
@@ -72,7 +80,7 @@ jobs:
         run: |
           docker run --detach --name blog-ci --init --memory 384m --cap-drop ALL \
             --security-opt no-new-privileges:true --publish 127.0.0.1:3000:3000 "$IMAGE"
-          trap 'docker logs blog-ci' ERR
+          trap 'echo "::group::Container logs"; docker logs blog-ci; echo "::endgroup::"' ERR
           for path in / /api/health /blog /rss.xml /sitemap.xml '/_next/image?url=%2Favatar.webp&w=64&q=75'; do
             curl --fail --silent --show-error --output /dev/null --write-out '%{http_code} %{url_effective}\n' \
               --retry 15 --retry-all-errors --retry-delay 1 "http://127.0.0.1:3000$path"

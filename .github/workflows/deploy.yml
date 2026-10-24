@@ -88,6 +88,7 @@ jobs:
           echo "$body"
           echo "Live release: \`$(jq --raw-output .release <<< "$body")\`" >> "$GITHUB_STEP_SUMMARY"
           jq --exit-status --arg release "$GITHUB_SHA" '.release == $release' <<< "$body"
+          echo "::notice title=Deployed::$GITHUB_SHA is live on angelaiskra.com"
 
       - name: Collect server logs
         if: failure()
