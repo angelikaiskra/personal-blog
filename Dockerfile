@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM node:24-bookworm-slim AS builder
+FROM node:25-bookworm-slim AS builder
 
 WORKDIR /app
 
@@ -16,7 +16,7 @@ COPY . .
 ARG NEXT_DEPLOYMENT_ID=local
 RUN pnpm lint && pnpm lint:prettier-check && pnpm build && pnpm typecheck
 
-FROM node:24-bookworm-slim AS runner
+FROM node:25-bookworm-slim AS runner
 
 WORKDIR /app
 
