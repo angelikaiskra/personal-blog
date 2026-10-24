@@ -13,13 +13,17 @@ concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+env:
+  IMAGE: ghcr.io/angelikaiskra/personal-blog:${{ github.sha }}
+
 jobs:
-  checks:
-    name: Check Docker image
+  build:
+    name: Build and check image
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    env:
-      BLOG_RELEASE_ID: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -27,242 +31,104 @@ jobs:
 
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
-      - name: Build and check production image
+      - name: Build production image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           platforms: linux/amd64
           load: true
-          tags: blog:ci
+          tags: ${{ env.IMAGE }}
           build-args: |
-            NEXT_DEPLOYMENT_ID=${{ env.BLOG_RELEASE_ID }}
+            NEXT_DEPLOYMENT_ID=${{ github.sha }}
           labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
           cache-from: type=gha,scope=blog
           cache-to: type=gha,mode=max,scope=blog
 
-      - name: Check pages and image optimization
-        shell: bash
+      - name: Smoke test
         run: |
-          [[ $(docker image inspect blog:ci --format '{{index .Config.Labels "service"}}') == blog ]]
-          docker run --detach --name blog-ci --init \
-            --publish 127.0.0.1:3000:3000 \
-            --cap-drop ALL --security-opt no-new-privileges \
-            blog:ci
-          trap 'docker logs blog-ci; docker rm --force blog-ci' EXIT
-
-          check_url() {
-            local path="$1"
-            shift
-            local response
-            response=$(curl --fail --silent --show-error --max-time 20 \
-              --output /dev/null --write-out '%{http_code} %{content_type}' \
-              "$@" "http://127.0.0.1:3000${path}")
-            if [[ "$response" != "200 "* ]]; then
-              echo "Expected HTTP 200 for $path, got: $response" >&2
-              return 1
-            fi
-            if [[ "$path" == /_next/image\?* && "$response" != "200 image/"* ]]; then
-              echo "Expected an image content type for $path, got: $response" >&2
-              return 1
-            fi
-          }
-
-          check_url / --max-time 10 --retry 15 --retry-all-errors --retry-delay 1
-          health=$(curl --fail --silent --show-error --max-time 10 \
-            --dump-header "$RUNNER_TEMP/blog-health-headers" \
-            http://127.0.0.1:3000/api/health)
-          jq --exit-status --arg release "$BLOG_RELEASE_ID" \
-            '.status == "ok" and .release == $release' <<< "$health"
-          grep --extended-regexp --ignore-case --quiet \
-            '^cache-control:.*no-store' "$RUNNER_TEMP/blog-health-headers"
-          for path in /blog /blog/how-i-built-animated-3d-cat /rss.xml /sitemap.xml; do
-            check_url "$path"
+          docker run --detach --name blog-ci --publish 127.0.0.1:3000:3000 "$IMAGE"
+          trap 'docker logs blog-ci' ERR
+          for path in / /api/health /blog /rss.xml /sitemap.xml '/_next/image?url=%2Favatar.webp&w=64&q=75'; do
+            curl --fail --silent --show-error --output /dev/null \
+              --retry 15 --retry-all-errors --retry-delay 1 "http://127.0.0.1:3000$path"
           done
-          check_url '/_next/image?url=%2Favatar.webp&w=64&q=75'
 
-      - name: Save checked image
+      - name: Push image
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         env:
-          COMMIT_SHA: ${{ github.sha }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          docker save --output "$RUNNER_TEMP/blog-image.tar" blog:ci
-          image_id=$(docker image inspect blog:ci --format '{{.Id}}')
-          jq --null-input --arg release "$BLOG_RELEASE_ID" \
-            --arg commit "$COMMIT_SHA" --arg image_id "$image_id" \
-            '{release: $release, commit: $commit, image_id: $image_id}' \
-            > "$RUNNER_TEMP/blog-release.json"
+          echo "$TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker push "$IMAGE"
 
-      - name: Upload checked image
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: blog-image
-          path: |
-            ${{ runner.temp }}/blog-image.tar
-            ${{ runner.temp }}/blog-release.json
-          if-no-files-found: error
-          overwrite: true
-          retention-days: 1
-          compression-level: 0
-
-  publish:
-    name: Publish Docker image
-    needs: checks
+  deploy:
+    name: Deploy with Kamal
+    needs: build
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    concurrency:
-      group: blog-publish-${{ github.run_id }}
-      cancel-in-progress: false
-    outputs:
-      release: ${{ steps.publish.outputs.release }}
-      image_id: ${{ steps.publish.outputs.image_id }}
-      reference: ${{ steps.publish.outputs.reference }}
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Download checked image
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: blog-image
-          path: ${{ runner.temp }}
-
-      - name: Load checked image
-        run: docker load --input "$RUNNER_TEMP/blog-image.tar"
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set image name
-        id: image
-        env:
-          REPOSITORY: ${{ github.repository }}
-        run: echo "name=ghcr.io/${REPOSITORY,,}" >> "$GITHUB_OUTPUT"
-
-      - name: Publish checked image
-        id: publish
-        env:
-          IMAGE: ${{ steps.image.outputs.name }}
-          COMMIT_SHA: ${{ github.sha }}
-        run: |
-          metadata="$RUNNER_TEMP/blog-release.json"
-          jq --exit-status --arg commit "$COMMIT_SHA" '.commit == $commit' "$metadata"
-          release=$(jq --exit-status --raw-output '.release' "$metadata")
-          image_id=$(jq --exit-status --raw-output '.image_id' "$metadata")
-          [[ "$release" =~ ^${COMMIT_SHA}-${GITHUB_RUN_ID}-[0-9]+$ ]]
-          [[ "$image_id" =~ ^sha256:[0-9a-f]{64}$ ]]
-          [[ $(docker image inspect blog:ci --format '{{.Id}}') == "$image_id" ]]
-
-          inspect_release() {
-            docker manifest inspect --verbose "$IMAGE:$release" \
-              > "$RUNNER_TEMP/blog-manifest.json" 2> "$RUNNER_TEMP/blog-manifest-error"
-          }
-
-          if inspect_release; then
-            echo "Release tag already exists; verifying it without overwriting."
-          else
-            case "$(cat "$RUNNER_TEMP/blog-manifest-error")" in
-              'manifest unknown'|"no such manifest: $IMAGE:$release") ;;
-              *) cat "$RUNNER_TEMP/blog-manifest-error" >&2; exit 1 ;;
-            esac
-            docker tag blog:ci "$IMAGE:$release"
-            docker push "$IMAGE:$release"
-            inspect_release
-          fi
-
-          if ! jq --exit-status --arg image_id "$image_id" \
-            '(.OCIManifest.config.digest // .SchemaV2Manifest.config.digest) == $image_id' \
-            "$RUNNER_TEMP/blog-manifest.json" > /dev/null; then
-            echo "::error::Release $release does not match the checked image; refusing to overwrite it."
-            exit 1
-          fi
-          digest=$(jq --exit-status --raw-output '.Descriptor.digest' "$RUNNER_TEMP/blog-manifest.json")
-          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
-          reference="$IMAGE@$digest"
-
-          docker pull "$reference"
-          [[ $(docker image inspect "$reference" --format '{{.Id}}') == "$image_id" ]]
-          {
-            echo "release=$release"
-            echo "image_id=$image_id"
-            echo "reference=$reference"
-          } >> "$GITHUB_OUTPUT"
-          jq --arg image "$IMAGE" --arg digest "$digest" --arg reference "$reference" \
-            '. + {image: $image, digest: $digest, reference: $reference}' \
-            "$metadata" > "$RUNNER_TEMP/blog-published-release.json"
-
-      - name: Save published release metadata
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: blog-release-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/blog-published-release.json
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Record deployment image
-        env:
-          IMAGE_REFERENCE: ${{ steps.publish.outputs.reference }}
-        run: |
-          echo "Published checked image: $IMAGE_REFERENCE" >> "$GITHUB_STEP_SUMMARY"
-          jq --raw-output '"Checked release: " + .release' \
-            "$RUNNER_TEMP/blog-release.json" >> "$GITHUB_STEP_SUMMARY"
-
-  verify_deployment_access:
-    name: Verify production access
-    needs: publish
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
     environment: prod
     concurrency:
       group: blog-production
       cancel-in-progress: false
     permissions:
+      contents: read
+      packages: read
       id-token: write
+    env:
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+      KAMAL_REGISTRY_USERNAME: ${{ github.actor }}
+      KAMAL_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+      KAMAL_CLI_IMAGE: ghcr.io/basecamp/kamal:v2.12.0@sha256:7b5be276aa17bbe122887f6a1ff12865f4848111989699b9786083be95d98415
     steps:
-      - name: Assume production AWS role
-        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: eu-central-1
-          allowed-account-ids: '796310349380'
-          role-duration-seconds: 900
-          role-session-name: blog-ci-${{ github.run_id }}
-          retry-max-attempts: 3
+          persist-credentials: false
 
-      - name: Verify AWS identity
-        run: aws sts get-caller-identity --query Arn --output text
-
-      - name: Check deployment
-        shell: bash
+      - name: Prepare SSH access
         env:
-          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
           SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
-          : "${DEPLOY_HOST:?Missing DEPLOY_HOST variable}"
-          : "${SSH_PRIVATE_KEY:?Missing DEPLOY_SSH_KEY secret}"
-          : "${SSH_KNOWN_HOSTS:?Missing DEPLOY_KNOWN_HOSTS secret}"
-
           umask 077
-          ssh_dir=$(mktemp -d "$RUNNER_TEMP/blog-deploy-ssh.XXXXXX")
-          trap 'rm -f -- "$ssh_dir/key" "$ssh_dir/known_hosts"; rmdir -- "$ssh_dir"' EXIT
+          ssh_dir="$RUNNER_TEMP/ssh"
+          mkdir "$ssh_dir"
           printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > "$ssh_dir/key"
           printf '%s\n' "$SSH_KNOWN_HOSTS" | tr -d '\r' > "$ssh_dir/known_hosts"
+          printf '%s\n' 'Host *' '  BatchMode yes' '  ConnectTimeout 15' '  StrictHostKeyChecking yes' \
+            '  HostKeyAlgorithms ssh-ed25519' "  UserKnownHostsFile $ssh_dir/known_hosts" \
+            '  GlobalKnownHostsFile /dev/null' > "$ssh_dir/config"
+          echo "DEPLOY_SSH_KEY_PATH=$ssh_dir/key" >> "$GITHUB_ENV"
+          echo "DEPLOY_SSH_CONFIG=$ssh_dir/config" >> "$GITHUB_ENV"
 
-          timeout 60s ssh -F /dev/null -T \
-            -o BatchMode=yes \
-            -o ConnectTimeout=15 \
-            -o StrictHostKeyChecking=yes \
-            -o UserKnownHostsFile="$ssh_dir/known_hosts" \
-            -o GlobalKnownHostsFile=/dev/null \
-            -o IdentitiesOnly=yes \
-            -o IdentityAgent=none \
-            -o HostKeyAlgorithms=ssh-ed25519 \
-            -i "$ssh_dir/key" \
-            "blog-deploy@$DEPLOY_HOST" "docker version --format '{{.Server.Version}}'"
+      - name: Deploy
+        run: |
+          docker run --rm \
+            --mount "type=bind,source=$PWD,target=/workdir,readonly" \
+            --mount "type=bind,source=$RUNNER_TEMP/ssh,target=$RUNNER_TEMP/ssh,readonly" \
+            --env DEPLOY_HOST --env DEPLOY_SSH_KEY_PATH --env DEPLOY_SSH_CONFIG \
+            --env KAMAL_REGISTRY_USERNAME --env KAMAL_REGISTRY_PASSWORD \
+            "$KAMAL_CLI_IMAGE" deploy --skip-push --version "$GITHUB_SHA"
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: eu-central-1
+          role-duration-seconds: 900
+
+      - name: Invalidate CloudFront
+        env:
+          DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+        run: |
+          id=$(aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" \
+            --paths '/*' --query Invalidation.Id --output text)
+          aws cloudfront wait invalidation-completed --distribution-id "$DISTRIBUTION_ID" --id "$id"
+
+      - name: Check live release
+        run: |
+          curl --fail --silent --show-error --retry 5 --retry-all-errors https://angelaiskra.com/api/health |
+            jq --exit-status --arg release "$GITHUB_SHA" '.release == $release'
+
+      - name: Remove SSH key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/ssh"
