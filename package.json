@@ -26,13 +26,13 @@
     "@content-collections/next": "0.2.11",
     "@giscus/react": "3.1.0",
     "@react-three/drei": "10.7.9",
-    "@react-three/fiber": "9.8.1",
+    "@react-three/fiber": "9.8.2",
     "@tailwindcss/typography": "0.5.20",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "date-fns": "4.4.0",
     "feed": "6.0.0",
-    "motion": "14.1.0",
+    "motion": "14.5.0",
     "next": "16.4.2",
     "next-mdx-remote": "6.0.0",
     "next-themes": "0.4.6",
@@ -45,7 +45,7 @@
     "shiki": "4.5.0",
     "tailwind-merge": "3.7.0",
     "three": "0.186.1",
-    "zod": "4.6.6"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.3",
@@ -54,7 +54,7 @@
     "@types/react-dom": "19.3.0",
     "@types/three": "0.186.0",
     "babel-plugin-react-compiler": "1.0.0",
-    "eslint": "10.12.0",
+    "eslint": "10.13.0",
     "eslint-config-next": "16.4.2",
     "eslint-config-prettier": "10.1.8",
     "husky": "9.1.7",
