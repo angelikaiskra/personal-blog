@@ -26,7 +26,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const post = getPublishedPost(slug);
   const tags = post.categories.map((key) => postCategories.find((category) => category.key === key)?.label ?? key);
 
-  // TODO: Add openGraph.images and twitter.images
   return createMetadata({
     title: post.title,
     description: post.excerpt,

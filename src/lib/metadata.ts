@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import { siteConfig } from '@/config/site';
 
 interface MetadataOptions {
-  title: string;
-  description: string;
   path: string;
+  title?: string;
+  description?: string;
   article?: {
     publishedTime: string;
     modifiedTime: string;
@@ -13,8 +13,19 @@ interface MetadataOptions {
   };
 }
 
-export function createMetadata({ title, description, path, article }: MetadataOptions): Metadata {
-  const socialTitle = title === siteConfig.name ? title : `${title} | ${siteConfig.name}`;
+const defaultImage = {
+  url: '/og-image.png',
+  width: 1732,
+  height: 908,
+  alt: `Orange voxel cat sitting on a sunny yellow background • ${siteConfig.name}`,
+};
+
+export function createMetadata({
+  path,
+  title = siteConfig.name,
+  description = siteConfig.description,
+  article,
+}: MetadataOptions): Metadata {
   const url = new URL(path, siteConfig.url).href;
 
   return {
@@ -25,11 +36,12 @@ export function createMetadata({ title, description, path, article }: MetadataOp
       types: { 'application/rss+xml': '/rss.xml' },
     },
     openGraph: {
-      title: socialTitle,
+      title,
       description,
       url,
       siteName: siteConfig.name,
-      // TODO: Add a shared images array with an image URL, width, height, and alt text.
+      locale: 'en_US',
+      images: [defaultImage],
       ...(article
         ? {
             type: 'article',
@@ -39,10 +51,10 @@ export function createMetadata({ title, description, path, article }: MetadataOp
         : { type: 'website' }),
     },
     twitter: {
-      card: 'summary',
-      title: socialTitle,
+      card: 'summary_large_image',
+      title,
       description,
-      // TODO: Add images with an image URL and alt text; switch the card to summary_large_image.
+      images: [defaultImage],
     },
   };
 }

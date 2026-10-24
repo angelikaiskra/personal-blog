@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { postCategories } from '@/config/categories';
-import { siteConfig } from '@/config/site';
 import { BlogView } from '@/features/blog/views/blog-view';
 import { createMetadata } from '@/lib/metadata';
 
@@ -29,7 +28,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   return createMetadata({
     title: category.label,
-    description: `Explore ${category.label} articles from ${siteConfig.author}'s development blog.`,
+    description: `Explore ${category.label} articles.`,
     path: `/category/${category.key}`,
   });
 }

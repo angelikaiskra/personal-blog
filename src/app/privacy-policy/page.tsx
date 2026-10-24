@@ -8,7 +8,7 @@ import { createMetadata } from '@/lib/metadata';
 
 export const metadata = createMetadata({
   title: 'Privacy Policy',
-  description: 'What data this blog collects, why, and what you can do about it.',
+  description: 'What data this blog collects and why.',
   path: '/privacy-policy',
 });
 
