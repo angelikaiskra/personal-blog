@@ -24,7 +24,7 @@ But before we dive deeper, it’s important to understand why we need memoizatio
 
 When we first enter the page, React performs an initial render. Then, when the state changes, React re-renders components to keep the UI in sync with the latest values. This often happens when we interact with the app, for example we click a button on a page, or when external data changes, such as when an API request completes.
 
-React is smart and it doesn’t update the entire DOM every time. Instead, it uses <HighlightedText>reconciliation</HighlightedText> mechanism:
+React is smart and it doesn’t update the entire DOM every time. Instead, it uses **reconciliation** mechanism:
 
 1. React calls your components functions.
 2. It builds a new Virtual DOM - a tree of JS objects, representing the desired UI with updated state.
@@ -253,7 +253,7 @@ console.log(firstFunction === secondFunction); // -> false
 
 From the logical point of view, we should get `true` in the console. Both functions are identical after all. But that’s not what’s happening.
 
-Each time we create a function, JavaScript allocates a new object in a different location in memory. `firstFunction` and `secondFunction` store a pointer to that address in memory, not the objects directly. That’s why when we compare them with `===` , we compare their references (whether they point to the same memory) and the result is `false`.
+Each time we create a function, JavaScript allocates a new object in a different location in memory. `firstFunction` and `secondFunction` store a pointer to that address in memory, not the objects directly. That’s why when we compare them with === , we compare their references (whether they point to the same memory) and the result is `false`.
 
 The same logic applies in React when it compares variables between re-renders, like dependencies in hooks.
 
@@ -559,7 +559,7 @@ There’s a great VS Code extension that shows which components are optimized by
 
 ## Conclusion
 
-Congratulations on reading all the way to the end! I hope your brain isn’t overloaded with all this information.
+Thanks for reading all the way to the end! I hope your brain isn’t overloaded with all this information.
 
 <PostImage
   src="overusing-use-memo-use-callback/assets/spongebob-brain-fried.gif"
@@ -581,5 +581,3 @@ To sum it up:
 - **Don't optimize prematurely**. Start with simple, readable code and optimize it only when you notice some performance issues.
 
 And that’s it. I hope this article has cleared up any confusion you might have had about `useMemo` and `useCallback`. If you still have any questions, feel free to leave them in the comments.
-
-Thanks for reading!
