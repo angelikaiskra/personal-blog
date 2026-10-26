@@ -37,6 +37,7 @@ export function createCatDriver(model: VoxelCatModel, random?: () => number) {
 
   return {
     setPointer: interaction.setPointer,
+    setGaze: interaction.setGaze,
     clearPointer: interaction.clearPointer,
     isPointerNear: interaction.isPointerNear,
     resume,

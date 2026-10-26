@@ -59,8 +59,11 @@ export function createCatInteraction(model: VoxelCatModel) {
   const inverse = new THREE.Matrix4();
   const target = new THREE.Vector3();
   const direction = new THREE.Vector3();
+  const gazeAt = new THREE.Vector3();
 
   let active = false;
+  /** Watching a scripted point in world space instead of the cursor. */
+  let gazing = false;
 
   /**
    * Normalised device coordinates plus the size of the canvas they were measured against,
@@ -70,6 +73,14 @@ export function createCatInteraction(model: VoxelCatModel) {
     pointer.set(x, y);
     viewport.set(width, height);
     active = true;
+    gazing = false;
+  }
+
+  /** Watch a point in world space, however far from the face; `clearPointer` lets it go. */
+  function setGaze(world: THREE.Vector3) {
+    gazeAt.copy(world);
+    active = true;
+    gazing = true;
   }
 
   /** The pointer left the window, or a touch target expired: nothing left to watch. */
@@ -79,6 +90,7 @@ export function createCatInteraction(model: VoxelCatModel) {
 
   function reset(): CatInteractionPose {
     active = false;
+    gazing = false;
     Object.assign(pose, neutralCatInteractionPose());
     return pose;
   }
@@ -98,9 +110,14 @@ export function createCatInteraction(model: VoxelCatModel) {
 
   /** Writes the cursor's position in model blocks into `target`; false if there is none. */
   function locate(camera: THREE.Camera) {
+    inverse.copy(group.matrixWorld).invert();
+    if (gazing) {
+      target.copy(gazeAt).applyMatrix4(inverse);
+      return true;
+    }
     // Pull the ray back into the model's own space, since the hero scales/offsets the cat.
     raycaster.setFromCamera(pointer, camera);
-    ray.copy(raycaster.ray).applyMatrix4(inverse.copy(group.matrixWorld).invert());
+    ray.copy(raycaster.ray).applyMatrix4(inverse);
     return ray.intersectPlane(plane, target) !== null;
   }
 
@@ -110,8 +127,9 @@ export function createCatInteraction(model: VoxelCatModel) {
     if (active) group.updateWorldMatrix(true, false);
     const near =
       active &&
-      distanceOnScreen(camera, pointer.x, pointer.y, viewport.x, viewport.y) <
-        (pose.state === 'idle' ? watch.enter : watch.exit);
+      (gazing ||
+        distanceOnScreen(camera, pointer.x, pointer.y, viewport.x, viewport.y) <
+          (pose.state === 'idle' ? watch.enter : watch.exit));
     pose.state = near ? 'watching' : 'idle';
 
     let yaw = 0;
@@ -146,5 +164,5 @@ export function createCatInteraction(model: VoxelCatModel) {
     return pose;
   }
 
-  return { setPointer, clearPointer, isPointerNear, update, reset };
+  return { setPointer, setGaze, clearPointer, isPointerNear, update, reset };
 }

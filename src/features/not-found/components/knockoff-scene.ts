@@ -18,8 +18,6 @@ export type KnockoffSceneOptions = {
   /** Static scene, no choreography and no idle animation. */
   reducedMotion?: boolean;
   onStatusChange?: (status: KnockoffStatus) => void;
-  /** Seconds the shelf stays empty before the digits come back on their own. 0 disables. */
-  autoRebuildAfter?: number;
 };
 
 export type KnockoffScene = {
@@ -107,6 +105,8 @@ const SWAT_YAW = -1.15;
 /** How far ahead of the cat's origin the raised paw lands, and how far off-centre it sits. */
 const PAW_REACH = 8.6;
 const PAW_SIDE = 2.07;
+/** Just below the canvas, where the status line and its "Put it back" button sit. */
+const BUTTON_SPOT = new THREE.Vector3(LOOK_AT.x, -16, 8);
 
 const smooth = (t: number) => {
   const x = Math.min(1, Math.max(0, t));
@@ -133,7 +133,7 @@ function swatSpot(digitX: number) {
 /* ------------------------------------------------------------------------------------------ */
 
 export function createKnockoffScene(options: KnockoffSceneOptions): KnockoffScene {
-  const { canvas, onStatusChange, autoRebuildAfter = 8 } = options;
+  const { canvas, onStatusChange } = options;
   let theme: VoxelCatTheme = options.theme;
   let reduced = !!options.reducedMotion;
 
@@ -517,7 +517,30 @@ export function createKnockoffScene(options: KnockoffSceneOptions): KnockoffScen
     onStatusChange?.(next);
   };
 
+  /** What the eyes follow while the script runs: a digit (even mid-fall), a fixed spot, or rest. */
+  let gaze: Digit | THREE.Vector3 | null = null;
+
   let hurry: (() => void) | null = null;
+  /**
+   * Choreography speed. Each click on the cat raises the target a step; the speed eases
+   * towards it, and once the clicks stop the target drifts back to normal.
+   */
+  const RUSH = { step: 0.2, max: 2, rise: 0.2, hold: 0.4, fall: 0.6 };
+  let rush = 1;
+  let rushTarget = 1;
+  /** Seconds since the last click on the cat. */
+  let rushIdle = 0;
+  const resetRush = () => {
+    rush = 1;
+    rushTarget = 1;
+    rushIdle = 0;
+  };
+  const updateRush = (dt: number) => {
+    rushIdle += dt;
+    if (rushIdle > RUSH.hold) rushTarget = Math.max(1, rushTarget - ((RUSH.max - 1) / RUSH.fall) * dt);
+    // Exponential approach: about 95% of the way there after `rise` seconds.
+    rush += (rushTarget - rush) * (1 - Math.exp((-3 * dt) / RUSH.rise));
+  };
   /** A wait the visitor can cut short by clicking the cat. */
   const patience = (seconds: number, gen: number) =>
     new Promise<void>((resolve, reject) => {
@@ -546,6 +569,7 @@ export function createKnockoffScene(options: KnockoffSceneOptions): KnockoffScen
       const digit = nextTarget();
       if (!digit) break;
       digit.claimed = true;
+      gaze = digit;
       try {
         // Notice it, go over.
         await look(0.35, 0.15, 1, 0.35, gen);
@@ -559,8 +583,10 @@ export function createKnockoffScene(options: KnockoffSceneOptions): KnockoffScen
           // Tap. Watch it rock. Look at you. Shove.
           await tap(gen, () => wobble(digit));
           await wait(0.45, gen);
+          gaze = null;
           await look(0.75, -0.05, 1, 0.3, gen);
           await wait(0.55, gen);
+          gaze = digit;
           await look(0, 0.3, 1, 0.25, gen);
           await tap(gen, () => shove(digit), 0.22);
         }
@@ -570,18 +596,17 @@ export function createKnockoffScene(options: KnockoffSceneOptions): KnockoffScen
         await look(0.7, 0, 0.6, 0.45, gen);
       } finally {
         digit.claimed = false;
+        gaze = null;
       }
       await patience(1.1, gen);
     }
 
-    // Nothing left to knock over: face the audience, very pleased.
+    // Nothing left to knock over: face the audience, very pleased, and eye the button.
+    gaze = BUTTON_SPOT;
     await turn(-0.25, 0.45, gen);
     await look(0, 0, 0, 0.4, gen);
     setStatus('empty');
-    if (autoRebuildAfter > 0) {
-      await wait(autoRebuildAfter, gen);
-      void rebuildScript(gen);
-    }
+    canvas.style.cursor = '';
   };
 
   const rebuildScript = async (gen: number) => {
@@ -598,8 +623,11 @@ export function createKnockoffScene(options: KnockoffSceneOptions): KnockoffScen
       digit.t = 0;
       digit.dropDelay = i * 0.14;
     });
+    // Watch them rain back in, the middle one for all three.
+    gaze = digits[1];
     await look(0.25, 0.1, 1, 0.6, gen);
     await wait(0.5, gen);
+    gaze = null;
     await look(0, 0, 0, 0.4, gen);
     setStatus('playing');
     await knockEverything(gen);
@@ -609,6 +637,7 @@ export function createKnockoffScene(options: KnockoffSceneOptions): KnockoffScen
     generation += 1;
     tweens = [];
     hurry = null;
+    resetRush();
     const gen = generation;
     script(gen).catch((error) => {
       if (!(error instanceof Cancelled)) throw error;
@@ -646,7 +675,8 @@ export function createKnockoffScene(options: KnockoffSceneOptions): KnockoffScen
     pointer.x = event.clientX;
     pointer.y = event.clientY;
     pointer.active = true;
-    if (!reduced) canvas.style.cursor = pick(event.clientX, event.clientY) ? 'pointer' : '';
+    // Once the shelf is empty there is nothing left to click on the canvas.
+    if (!reduced) canvas.style.cursor = status !== 'empty' && pick(event.clientX, event.clientY) ? 'pointer' : '';
   };
   const onLeave = () => {
     pointer.active = false;
@@ -658,7 +688,9 @@ export function createKnockoffScene(options: KnockoffSceneOptions): KnockoffScen
     if (!target) return;
     if (target.kind === 'digit') shove(target.digit, 1.4);
     else {
-      // Clicking the cat hurries it along to the next digit.
+      // Clicking the cat skips the pause and nudges its speed up a step.
+      rushTarget = Math.min(RUSH.max, rushTarget + RUSH.step);
+      rushIdle = 0;
       hurry?.();
     }
     if (event.pointerType === 'touch') {
@@ -701,17 +733,20 @@ export function createKnockoffScene(options: KnockoffSceneOptions): KnockoffScen
 
   const render = (dt: number) => {
     if (!reduced) {
-      advanceTweens(dt);
+      updateRush(dt);
+      advanceTweens(dt * rush);
       for (const digit of digits) updateDigit(digit, dt);
       shelfThud = Math.max(0, shelfThud - dt * 2.5);
       shelf.position.y = -Math.sin(shelfThud * Math.PI * 4) * shelfThud * 0.25;
     }
     applyCat();
 
-    if (pointer.active && !reduced) {
+    // The cat only watches the cursor once its work is done; mid-routine it minds the digits.
+    if (pointer.active && !reduced && status === 'empty') {
       const box = toNdc(pointer.x, pointer.y);
       if (box.width && box.height) cat.setPointer(ndc.x, ndc.y, box.width, box.height);
-    }
+    } else if (gaze && !reduced) cat.setGaze(gaze instanceof THREE.Vector3 ? gaze : gaze.group.position);
+    else cat.clearPointer();
     cat.update(dt, camera);
     // The rig rewrote the head from idle + cursor; lean that towards the scripted look.
     if (catPose.focus > 0) {
@@ -748,6 +783,8 @@ export function createKnockoffScene(options: KnockoffSceneOptions): KnockoffScen
     generation += 1;
     tweens = [];
     hurry = null;
+    resetRush();
+    gaze = null;
     Object.assign(catPose, {
       ...CAT_HOME,
       hop: 0,
