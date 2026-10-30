@@ -85,7 +85,7 @@ export function BlogView({ selectedCategory }: BlogViewProps) {
                 </Text>
 
                 <AnimatedLink href={`/blog/${post.slug}`} hoverAnimation="arrowSlide" className="mt-auto">
-                  Read more
+                  Read more<span className="sr-only"> about {post.title}</span>
                 </AnimatedLink>
               </Card>
             </li>

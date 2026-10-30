@@ -76,7 +76,7 @@ export function HomeView() {
                   </Text>
 
                   <AnimatedLink href={`/blog/${post.slug}`} hoverAnimation="arrowSlide" className="mt-5">
-                    Read more
+                    Read more<span className="sr-only"> about {post.title}</span>
                   </AnimatedLink>
                 </article>
               </li>

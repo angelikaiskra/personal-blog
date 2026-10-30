@@ -228,7 +228,7 @@ export function VoxelCatCanvas({ onTouchTargetChange, onReadyChange }: CatCanvas
         zoom: 100,
         position: [0, DISTANCE * Math.sin(ELEVATION), DISTANCE * Math.cos(ELEVATION)],
       }}
-      gl={{ alpha: true, antialias: true }}
+      gl={{ alpha: true, antialias: true, failIfMajorPerformanceCaveat: true }}
       onCreated={({ gl }) => {
         gl.toneMapping = THREE.NeutralToneMapping;
       }}
