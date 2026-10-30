@@ -36,6 +36,7 @@ function CatPoster() {
         alt=""
         fill
         unoptimized
+        loading="eager"
         fetchPriority="high"
         className="object-contain dark:hidden"
       />
@@ -44,6 +45,7 @@ function CatPoster() {
         alt=""
         fill
         unoptimized
+        loading="eager"
         fetchPriority="high"
         className="hidden object-contain dark:block"
       />

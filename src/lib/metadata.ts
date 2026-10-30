@@ -14,9 +14,9 @@ interface MetadataOptions {
 }
 
 const defaultImage = {
-  url: '/og-image.png',
-  width: 1732,
-  height: 908,
+  url: '/og-image.jpg',
+  width: 1200,
+  height: 630,
   alt: `Orange voxel cat sitting on a sunny yellow background • ${siteConfig.name}`,
 };
 
