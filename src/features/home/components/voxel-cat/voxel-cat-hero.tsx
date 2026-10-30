@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { Component, useState, type ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
-import type { CatTouchTarget } from './cat-touch-input';
+import type { CatTouchTarget } from './cat-pointer-input';
 import { CatTouchSparkles } from './cat-touch-sparkles';
 
 const VoxelCatCanvas = dynamic(() => import('./voxel-cat-canvas').then((module) => module.VoxelCatCanvas), {

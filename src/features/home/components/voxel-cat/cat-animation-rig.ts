@@ -51,9 +51,6 @@ export function createCatAnimationRig(model: VoxelCatModel) {
         seam.positions.setZ(index, seam.rest[index * 3 + 2] + seam.lever[index] * delta);
       }
       seam.positions.needsUpdate = true;
-      // Only the mitred face moves, but four of twenty-four vertices is not worth a special
-      // case. Bounding volumes are deliberately not refreshed: the tail is never raycast and
-      // its meshes opt out of frustum culling precisely because these bounds cannot keep up.
       seam.mesh.geometry.computeVertexNormals();
       seam.last = angle;
     }
@@ -62,7 +59,6 @@ export function createCatAnimationRig(model: VoxelCatModel) {
   /** `interaction` layers the cursor response over the idle pose; omit it for idle alone. */
   function applyPose(pose: CatPose, interaction?: CatInteractionPose) {
     joints.chest.scale.z = base.chest.scale.z * (1 + CAT_IDLE.breath.depth * pose.breath);
-    // Idle and cursor offsets add: a watching cat still drifts its head about on its own.
     joints.head.rotation.y = base.head.rotation.y + pose.headYaw + (interaction?.headYaw ?? 0);
     joints.head.rotation.x = base.head.rotation.x + pose.headPitch + (interaction?.headPitch ?? 0);
     joints.earL.rotation.z = base.earL.rotation.z + pose.earL;
@@ -73,8 +69,8 @@ export function createCatAnimationRig(model: VoxelCatModel) {
     joints.eyeR.scale.y = base.eyeR.scale.y * (0.055 + opening * 0.945);
     glints.forEach((glint, index) => {
       glint.visible = glintVisibility[index] && opening > 0.12;
-      // The cell slides inside its own dark plate, which is what makes the eye read as a
-      // pupil rather than a highlight; the plate itself never leaves the authored spot.
+      // Only the cell moves; its dark plate stays put, which is what makes the eye read as a
+      // pupil rather than a highlight.
       glint.position.x = glintRest[index].x + (interaction?.glintX ?? 0);
       glint.position.y = glintRest[index].y + (interaction?.glintY ?? 0);
     });

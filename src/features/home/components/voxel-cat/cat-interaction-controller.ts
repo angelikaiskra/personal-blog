@@ -20,12 +20,11 @@ export const CAT_INTERACTION = {
 
 export type CatInteractionState = 'idle' | 'watching';
 
+/** Offsets added on top of the idle pose, in radians for the head and blocks for the cells. */
 export type CatInteractionPose = {
   state: CatInteractionState;
-  /** Head offsets in radians, added on top of the idle pose rather than replacing it. */
   headYaw: number;
   headPitch: number;
-  /** Offsets of the white cell inside the eye plate, in blocks, relative to its rest. */
   glintX: number;
   glintY: number;
 };
@@ -39,9 +38,9 @@ export const neutralCatInteractionPose = (): CatInteractionPose => ({
 });
 
 /**
- * Cursor behaviour layered over the idle animation: while the pointer is near the cat, the
- * head turns to follow it and the eye cells slide towards it, easing back to rest once it
- * leaves. Only calculates a pose — the rig remains the sole writer of transforms.
+ * While the pointer is near the cat, the head turns to follow it and the eye cells slide
+ * towards it, easing back to rest once it leaves. Only calculates a pose — the rig remains
+ * the sole writer of transforms.
  */
 export function createCatInteraction(model: VoxelCatModel) {
   const { group } = model;
@@ -65,10 +64,7 @@ export function createCatInteraction(model: VoxelCatModel) {
   /** Watching a scripted point in world space instead of the cursor. */
   let gazing = false;
 
-  /**
-   * Normalised device coordinates plus the size of the canvas they were measured against,
-   * so the module never touches the DOM itself.
-   */
+  /** Normalised device coordinates plus the canvas they were measured against, in CSS pixels. */
   function setPointer(x: number, y: number, width: number, height: number) {
     pointer.set(x, y);
     viewport.set(width, height);
@@ -83,7 +79,6 @@ export function createCatInteraction(model: VoxelCatModel) {
     gazing = true;
   }
 
-  /** The pointer left the window, or a touch target expired: nothing left to watch. */
   function clearPointer() {
     active = false;
   }
@@ -155,12 +150,12 @@ export function createCatInteraction(model: VoxelCatModel) {
     }
 
     // Exponential convergence: the same easing at 30, 60 or 120 Hz, and never a snap.
-    const headBlend = 1 - Math.exp(-CAT_INTERACTION.head.rate * deltaSeconds);
-    const glintBlend = 1 - Math.exp(-CAT_INTERACTION.glint.rate * deltaSeconds);
-    pose.headYaw += (yaw - pose.headYaw) * headBlend;
-    pose.headPitch += (pitch - pose.headPitch) * headBlend;
-    pose.glintX += (glintX - pose.glintX) * glintBlend;
-    pose.glintY += (glintY - pose.glintY) * glintBlend;
+    const headRate = CAT_INTERACTION.head.rate;
+    const glintRate = CAT_INTERACTION.glint.rate;
+    pose.headYaw = THREE.MathUtils.damp(pose.headYaw, yaw, headRate, deltaSeconds);
+    pose.headPitch = THREE.MathUtils.damp(pose.headPitch, pitch, headRate, deltaSeconds);
+    pose.glintX = THREE.MathUtils.damp(pose.glintX, glintX, glintRate, deltaSeconds);
+    pose.glintY = THREE.MathUtils.damp(pose.glintY, glintY, glintRate, deltaSeconds);
     return pose;
   }
 

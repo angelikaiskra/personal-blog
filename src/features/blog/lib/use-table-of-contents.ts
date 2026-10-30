@@ -6,7 +6,6 @@ import { navigateToHeading } from './navigate-to-heading';
 import type { TableOfContentsItem } from './rehype-table-of-contents';
 
 const SCROLL_SETTLE_DELAY = 180;
-const SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ']);
 
 export function useTableOfContents(items: TableOfContentsItem[]) {
   const [activeId, setActiveId] = useState(items[0]?.id);
@@ -14,13 +13,17 @@ export function useTableOfContents(items: TableOfContentsItem[]) {
 
   useEffect(() => {
     const headings = items.map(({ id }) => document.getElementById(id)).filter((heading) => heading !== null);
+    if (!headings.length) return;
+
+    const controller = new AbortController();
+    const { signal } = controller;
     let frame = 0;
     let pendingId: string | null = null;
     let settleTimer: ReturnType<typeof setTimeout> | undefined;
 
     function updateActiveSection() {
       frame = 0;
-      if (pendingId || !headings.length) return;
+      if (pendingId) return;
 
       let activeHeading = headings[0];
       for (const heading of headings) {
@@ -49,6 +52,12 @@ export function useTableOfContents(items: TableOfContentsItem[]) {
       settleTimer = setTimeout(finishScroll, SCROLL_SETTLE_DELAY);
     }
 
+    function interruptScroll() {
+      if (!pendingId) return;
+      window.scrollTo({ top: window.scrollY, behavior: 'instant' });
+      finishScroll();
+    }
+
     startNavigationRef.current = (id) => {
       pendingId = id;
       setActiveId(id);
@@ -56,53 +65,29 @@ export function useTableOfContents(items: TableOfContentsItem[]) {
       waitForScrollToSettle();
     };
 
+    const observer = new ResizeObserver(scheduleUpdate);
+    const article = headings[0].closest('article');
+    if (article) observer.observe(article);
+    scheduleUpdate();
+
     function onScroll() {
       // A quiet period also handles browsers without scrollend support.
       if (pendingId) waitForScrollToSettle();
       scheduleUpdate();
     }
 
-    function interruptScroll() {
-      if (!pendingId) return;
-      window.scrollTo({ top: window.scrollY, behavior: 'instant' });
-      finishScroll();
-    }
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (
-        event.target instanceof HTMLElement &&
-        event.target.closest('input, textarea, select, [contenteditable="true"]')
-      )
-        return;
-      if (SCROLL_KEYS.has(event.key)) interruptScroll();
-    }
-
-    const observer = new ResizeObserver(scheduleUpdate);
-    const article = headings[0]?.closest('article');
-    if (article) observer.observe(article);
-    scheduleUpdate();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('scrollend', finishScroll);
-    window.addEventListener('resize', scheduleUpdate);
-    window.addEventListener('hashchange', finishScroll);
-    window.addEventListener('popstate', finishScroll);
-    window.addEventListener('wheel', interruptScroll, { passive: true });
-    window.addEventListener('touchstart', interruptScroll, { passive: true });
-    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('scroll', onScroll, { passive: true, signal });
+    window.addEventListener('resize', scheduleUpdate, { signal });
+    for (const type of ['scrollend', 'hashchange', 'popstate']) window.addEventListener(type, finishScroll, { signal });
+    for (const type of ['wheel', 'touchstart'])
+      window.addEventListener(type, interruptScroll, { passive: true, signal });
 
     return () => {
+      controller.abort();
       cancelAnimationFrame(frame);
       clearTimeout(settleTimer);
       startNavigationRef.current = null;
       observer.disconnect();
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('scrollend', finishScroll);
-      window.removeEventListener('resize', scheduleUpdate);
-      window.removeEventListener('hashchange', finishScroll);
-      window.removeEventListener('popstate', finishScroll);
-      window.removeEventListener('wheel', interruptScroll);
-      window.removeEventListener('touchstart', interruptScroll);
-      window.removeEventListener('keydown', onKeyDown);
     };
   }, [items]);
 

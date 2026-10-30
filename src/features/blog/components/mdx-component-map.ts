@@ -11,7 +11,7 @@ import { PostImage } from './mdx/post-image';
 import { PostModel } from './mdx/post-model/post-model';
 import { Separator } from './mdx/separator';
 import { SprinkledText } from './mdx/sprinkled-text';
-import { HighlightedText, Strike, Wave } from './mdx/text-effects';
+import { HighlightedText, Strike } from './mdx/text-effects';
 
 export const mdxComponents = {
   ...linkedHeadingComponents,
@@ -26,5 +26,4 @@ export const mdxComponents = {
   Separator,
   SprinkledText,
   Strike,
-  Wave,
 } satisfies NonNullable<MDXRemoteProps['components']>;

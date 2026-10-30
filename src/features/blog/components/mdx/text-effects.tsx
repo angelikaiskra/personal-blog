@@ -11,7 +11,3 @@ export function HighlightedText({ children }: TextEffectProps) {
 export function Strike({ children }: TextEffectProps) {
   return <s>{children}</s>;
 }
-
-export function Wave({ children }: TextEffectProps) {
-  return <span>{children}</span>;
-}

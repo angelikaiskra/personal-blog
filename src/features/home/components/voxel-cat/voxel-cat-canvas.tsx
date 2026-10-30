@@ -1,21 +1,29 @@
 'use client';
 
 import { ContactShadows } from '@react-three/drei';
-import { addAfterEffect, Canvas, useFrame, useThree } from '@react-three/fiber';
+import { addAfterEffect, Canvas, useFrame, useStore, useThree, type Size } from '@react-three/fiber';
 import { useTheme } from 'next-themes';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { createCatDriver } from './cat-driver';
-import { CAT_TOUCH, createCatTouchInput, type CatTouchTarget } from './cat-touch-input';
+import { CAT_TOUCH, createCatPointerInput, type CatLook, type CatTouchTarget } from './cat-pointer-input';
 import { createVoxelCatModel, type VoxelCatModel } from './create-voxel-cat-model';
 
-/** Near-parallel reference edges: approximately 27° yaw and 18° elevation. */
 const TURN = -0.47;
 const ELEVATION = 0.31;
 const DISTANCE = 30;
 
 /** Fraction of the panel the cat is allowed to fill. */
 const FILL = 0.81;
+
+/**
+ * Clip space runs -1 to 1 across the canvas. `box` is r3f's own measurement, kept current by a
+ * resize observer and scroll tracking, so the scene never reads layout inside the frame loop.
+ */
+const toClip = (look: CatLook, box: Size) => ({
+  x: ((look.clientX - box.left) / box.width) * 2 - 1,
+  y: -((look.clientY - box.top) / box.height) * 2 + 1,
+});
 
 type CatCanvasProps = {
   onTouchTargetChange: (target: CatTouchTarget | null) => void;
@@ -30,137 +38,79 @@ function VoxelCatScene({
 }: { model: VoxelCatModel; bounds: THREE.Box3 } & CatCanvasProps) {
   const animation = useRef<{
     cat: ReturnType<typeof createCatDriver>;
-    pointer: { clientX: number; clientY: number; active: boolean };
-    touchTarget: CatTouchTarget | null;
-    /** Last measured canvas box; null means "measure again on the next frame that needs it". */
-    rect: DOMRect | null;
+    input: ReturnType<typeof createCatPointerInput>;
     running: boolean;
     rendered: boolean;
     ready: boolean;
   } | null>(null);
 
+  const store = useStore();
   const invalidate = useThree((state) => state.invalidate);
+  const setFrameloop = useThree((state) => state.setFrameloop);
   const canvas = useThree((state) => state.gl.domElement);
   const camera = useThree((state) => state.camera);
   const viewport = useThree((state) => state.viewport);
   const { resolvedTheme } = useTheme();
 
-  // Bounds contain actual vertices in the camera's orientation, not a world-axis box's
-  // empty corners, so the face stays readable at narrow widths.
   const size = useMemo(() => bounds.getSize(new THREE.Vector3()), [bounds]);
   const centre = useMemo(
     () => bounds.getCenter(new THREE.Vector3()).applyAxisAngle(new THREE.Vector3(1, 0, 0), -ELEVATION),
     [bounds],
   );
   const fit = Math.min((viewport.width * FILL) / size.x, (viewport.height * FILL) / size.y);
-  // Centred on all three axes: the camera looks at the origin, so under a tilt an
-  // un-centred depth slides the cat up or down the panel just like an un-centred height would.
   const offsetX = -centre.x * fit;
   const offsetZ = -centre.z * fit;
   const floorY = -centre.y * fit;
 
   useLayoutEffect(() => {
-    // Applies later theme changes; the initial coat is already set at build time from the
-    // class next-themes' blocking script stamps.
+    // Only later changes: the initial coat is built from the class next-themes stamps.
     const dark = resolvedTheme ? resolvedTheme === 'dark' : document.documentElement.classList.contains('dark');
     model.setTheme(dark ? 'dark' : 'light');
     invalidate();
   }, [invalidate, model, resolvedTheme]);
 
   useEffect(() => {
-    const cat = createCatDriver(model);
-    const state = {
-      cat,
-      pointer: { clientX: 0, clientY: 0, active: false },
-      touchTarget: null as CatTouchTarget | null,
-      rect: null as DOMRect | null,
-      running: false,
-      rendered: false,
-      ready: false,
-    };
+    const input = createCatPointerInput({
+      acceptTap: (tap) => {
+        const state = animation.current;
+        if (!state?.running || !state.ready) return false;
+        const box = store.getState().size;
+        if (!box.width || !box.height) return false;
+        const look = { clientX: tap.pageX - window.scrollX, clientY: tap.pageY - window.scrollY };
+        const clip = toClip(look, box);
+        return state.cat.isPointerNear(clip.x, clip.y, box.width, box.height, camera, CAT_TOUCH.radius);
+      },
+      onTargetChange: onTouchTargetChange,
+    });
+    const state = { cat: createCatDriver(model), input, running: false, rendered: false, ready: false };
     animation.current = state;
+
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
     let visible = false;
     let reduced = media.matches;
     let lost = false;
 
-    const touch = createCatTouchInput({
-      acceptTap: ({ pageX, pageY }) => {
-        if (!state.running || !state.ready) return false;
-        const clientX = pageX - window.scrollX;
-        const clientY = pageY - window.scrollY;
-        const rect = (state.rect = canvas.getBoundingClientRect());
-        return (
-          rect.width > 0 &&
-          rect.height > 0 &&
-          cat.isPointerNear(
-            ((clientX - rect.left) / rect.width) * 2 - 1,
-            -((clientY - rect.top) / rect.height) * 2 + 1,
-            rect.width,
-            rect.height,
-            camera,
-            CAT_TOUCH.radius,
-          )
-        );
-      },
-      onTargetChange: (target) => {
-        state.touchTarget = target;
-        state.pointer.active = false;
-        if (!target) cat.clearPointer();
-        onTouchTargetChange(target);
-      },
-    });
-
+    /** The loop runs only while the cat can be seen moving; otherwise it draws once and stops. */
     const sync = () => {
       if (media.matches !== reduced) {
         reduced = media.matches;
         if (reduced) {
-          cat.reset();
+          state.cat.reset();
           invalidate();
         }
       }
+      // Scrolling offscreen only pauses, so a tap keeps its original expiry; the other three
+      // drop whatever the cat was watching.
+      if (document.hidden || reduced || lost) input.clear();
       const running = visible && !document.hidden && !reduced && !lost;
-      // Scrolling offscreen pauses rendering; the touch target keeps its original expiry.
-      if (document.hidden || reduced || lost) touch.clear();
-      if (running !== state.running) {
-        state.running = running;
-        cat.resume();
-        // A demand loop cannot restart itself after all pending frames have drained.
-        if (running) invalidate();
-      }
+      if (running === state.running) return;
+      state.running = running;
+      // The clock restarts rather than catching up on the time spent paused.
+      state.cat.resume();
+      setFrameloop(running ? 'always' : 'demand');
     };
-    // Measuring the canvas inside the frame loop forces a layout flush on every frame, so the
-    // box is cached and dropped whenever something can have moved it.
-    const remeasure = () => {
-      state.rect = null;
-    };
-    // The hero is `pointer-events-none`, so the canvas sees no pointer events of its own —
-    // the window is the only source.
-    const track = (event: PointerEvent) => {
-      if (event.pointerType === 'touch') return;
-      touch.clear();
-      state.pointer.clientX = event.clientX;
-      state.pointer.clientY = event.clientY;
-      state.pointer.active = true;
-    };
-    const forget = () => {
-      touch.clear();
-      state.pointer.active = false;
-      cat.clearPointer();
-    };
-    const release = (event: PointerEvent) => {
-      // Touch targets outlive the gesture; keep the existing pen release behavior.
-      if (event.pointerType !== 'mouse' && event.pointerType !== 'touch') forget();
-    };
-    const leave = (event: PointerEvent) => {
-      // Touch pointerleave follows pointerup and must not cancel a freshly accepted tap.
-      if (event.pointerType !== 'touch') forget();
-    };
-    const cancel = (event: PointerEvent) => {
-      // Touch cancellation only rejects the pending gesture; scrolling keeps its target.
-      if (event.pointerType !== 'touch') forget();
-    };
-    // Three preventDefaults the loss and rebuilds GL state on restore, but a demand loop has
+
+    // Three preventDefaults the loss and rebuilds GL state on restore, but a paused loop has
     // no pending frame left to draw with — without this the hero stays blank for good.
     const onLost = () => {
       lost = true;
@@ -170,12 +120,11 @@ function VoxelCatScene({
     };
     const onRestored = () => {
       lost = false;
-      remeasure();
       sync();
       invalidate();
     };
-    // Runs after this canvas and ContactShadows have rendered. A different cat's
-    // frame must not reveal this canvas, and reduced motion still needs the first draw.
+    // Runs once this canvas and its ContactShadows have drawn, which is what the poster waits
+    // for; reduced motion still needs that first draw.
     const stopWatchingFrames = addAfterEffect(() => {
       if (!state.rendered || state.ready || lost) return;
       state.ready = true;
@@ -183,80 +132,44 @@ function VoxelCatScene({
     });
     const observer = new IntersectionObserver(([entry]) => {
       visible = entry.isIntersecting && entry.intersectionRatio > 0;
-      remeasure();
       sync();
     });
     observer.observe(canvas);
-    // Catches container-driven resizes that never reach the window.
-    const resizes = new ResizeObserver(remeasure);
-    resizes.observe(canvas);
     document.addEventListener('visibilitychange', sync);
     media.addEventListener('change', sync);
-    window.addEventListener('pointermove', track, { passive: true });
-    window.addEventListener('pointerdown', track, { passive: true });
-    window.addEventListener('pointerup', release, { passive: true });
-    window.addEventListener('pointercancel', cancel, { passive: true });
-    document.addEventListener('pointerleave', leave);
-    window.addEventListener('blur', forget);
-    window.addEventListener('resize', remeasure, { passive: true });
-    // Capturing, so a scroll inside any ancestor counts, not just the document's own.
-    window.addEventListener('scroll', remeasure, { passive: true, capture: true });
     canvas.addEventListener('webglcontextlost', onLost);
     canvas.addEventListener('webglcontextrestored', onRestored);
-    cat.reset();
+    state.cat.reset();
     invalidate();
 
     return () => {
       stopWatchingFrames();
-      touch.dispose();
+      input.dispose();
       observer.disconnect();
-      resizes.disconnect();
       document.removeEventListener('visibilitychange', sync);
       media.removeEventListener('change', sync);
-      window.removeEventListener('pointermove', track);
-      window.removeEventListener('pointerdown', track);
-      window.removeEventListener('pointerup', release);
-      window.removeEventListener('pointercancel', cancel);
-      document.removeEventListener('pointerleave', leave);
-      window.removeEventListener('blur', forget);
-      window.removeEventListener('resize', remeasure);
-      window.removeEventListener('scroll', remeasure, { capture: true });
       canvas.removeEventListener('webglcontextlost', onLost);
       canvas.removeEventListener('webglcontextrestored', onRestored);
       state.running = false;
-      cat.reset();
+      setFrameloop('demand');
+      state.cat.reset();
       animation.current = null;
     };
-  }, [camera, canvas, invalidate, model, onReadyChange, onTouchTargetChange]);
+  }, [camera, canvas, invalidate, model, onReadyChange, onTouchTargetChange, setFrameloop, store]);
 
-  useFrame(({ camera }, delta) => {
+  useFrame(({ size: box, camera }, delta) => {
     const state = animation.current;
     if (!state) return;
     state.rendered = true;
-    // Render the neutral pose underneath the matching image before starting animation.
     if (!state.ready || !state.running) return;
-    // Coalesces pointer events into one projection per frame.
-    const { pointer, touchTarget, cat } = state;
-    if (touchTarget || pointer.active) {
-      const rect = (state.rect ??= canvas.getBoundingClientRect());
-      if (rect.width && rect.height) {
-        // Mouse coordinates follow the viewport; touch targets stay at their document position.
-        const clientX = touchTarget ? touchTarget.pageX - window.scrollX : pointer.clientX;
-        const clientY = touchTarget ? touchTarget.pageY - window.scrollY : pointer.clientY;
-        cat.setPointer(
-          ((clientX - rect.left) / rect.width) * 2 - 1,
-          -((clientY - rect.top) / rect.height) * 2 + 1,
-          rect.width,
-          rect.height,
-        );
-      } else {
-        // A zero-size box is stale the moment the layout settles; never keep it.
-        state.rect = null;
-        cat.clearPointer();
-      }
+    const look = state.input.read();
+    if (look && box.width && box.height) {
+      const clip = toClip(look, box);
+      state.cat.setPointer(clip.x, clip.y, box.width, box.height);
+    } else {
+      state.cat.clearPointer();
     }
-    cat.update(delta, camera);
-    invalidate();
+    state.cat.update(delta, camera);
   });
 
   return (
@@ -264,8 +177,8 @@ function VoxelCatScene({
       <group position={[offsetX, floorY, offsetZ]} scale={fit}>
         <primitive object={model.group} />
       </group>
-      {/* Capture only the lowest blocks so the shadow anchors the paws and tail.
-          Scaling the capture depth with the model keeps it consistent on resize. */}
+      {/* `far` captures the lowest blocks only, so the shadow anchors the paws and tail; it
+          scales with the model to stay consistent on resize. */}
       <ContactShadows
         frames={1}
         position={[offsetX, floorY - 0.01, offsetZ]}
@@ -280,11 +193,7 @@ function VoxelCatScene({
 }
 
 export function VoxelCatCanvas({ onTouchTargetChange, onReadyChange }: CatCanvasProps) {
-  // Built during render rather than in an effect so the cat is in the scene on the very first
-  // frame — ContactShadows only bakes once, and would otherwise bake an empty floor.
   const model = useMemo(() => {
-    // This component is loaded with ssr: false, so the theme class is available before
-    // construction even when next-themes has not populated resolvedTheme yet.
     const theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
     const built = createVoxelCatModel({ theme });
     built.group.rotation.y = TURN;
@@ -292,18 +201,14 @@ export function VoxelCatCanvas({ onTouchTargetChange, onReadyChange }: CatCanvas
   }, []);
 
   const bounds = useMemo(() => {
-    const projected = new THREE.Box3();
-    const vertex = new THREE.Vector3();
-    const cameraRotation = new THREE.Matrix4().makeRotationX(ELEVATION);
+    // `precise` walks every vertex, so the box holds the cat's real outline in the camera's
+    // orientation rather than a world-axis box's empty corners.
+    const tilted = new THREE.Group();
+    tilted.rotation.x = ELEVATION;
+    tilted.add(model.group);
+    const projected = new THREE.Box3().setFromObject(tilted, true);
+    tilted.remove(model.group);
     model.group.updateMatrixWorld(true);
-    for (const part of Object.values(model.parts)) {
-      const positions = part.geometry.getAttribute('position');
-      const transform = new THREE.Matrix4().multiplyMatrices(cameraRotation, part.matrixWorld);
-      for (let index = 0; index < positions.count; index++) {
-        vertex.fromBufferAttribute(positions, index).applyMatrix4(transform);
-        projected.expandByPoint(vertex);
-      }
-    }
     return projected;
   }, [model]);
 
@@ -314,19 +219,20 @@ export function VoxelCatCanvas({ onTouchTargetChange, onReadyChange }: CatCanvas
       orthographic
       shadows="percentage"
       dpr={[1, 2]}
+      // Starts paused: one frame draws the neutral pose, and the scene switches the loop on
+      // once the cat is on screen and allowed to move.
       frameloop="demand"
+      // Undebounced: a stale box would have the cat looking beside the pointer mid-scroll.
+      resize={{ scroll: true, debounce: { scroll: 0, resize: 0 } }}
       camera={{
         zoom: 100,
         position: [0, DISTANCE * Math.sin(ELEVATION), DISTANCE * Math.cos(ELEVATION)],
       }}
       gl={{ alpha: true, antialias: true }}
       onCreated={({ gl }) => {
-        // sRGB output and an exposure of 1 are already the renderer's defaults.
         gl.toneMapping = THREE.NeutralToneMapping;
       }}
     >
-      {/* Studio rig solved from the reference: the orange coat reads 1.00 on up-faces,
-          0.87 on front faces and 0.75 on lateral faces. */}
       <hemisphereLight args={['#fffaf2', '#d6cec1', 1.4]} />
       <directionalLight
         color="#fff8ee"

@@ -52,7 +52,7 @@ export function AboutMeView() {
         </Heading>
 
         <Text as="p" className="mt-6 sm:mt-8">
-          All articles are written fully by me. Some images in posts are generated using ChatGPT.
+          All articles are written fully by me.
         </Text>
       </section>
     </MaxWidthContainer>

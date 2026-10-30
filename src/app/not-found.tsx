@@ -27,9 +27,9 @@ export default function NotFound() {
           </div>
 
           <div className="flex flex-col gap-y-7">
-            <Text as="p" className="max-w-[34em]">
+            <Text as="p" className="max-w-[25em]">
               The page you&apos;re looking for doesn&apos;t exist. The link might have a typo, the post might have
-              moved, or it got pushed off the edge like everything else around here.
+              moved, or it got pushed off the edge.
             </Text>
             <div className="flex flex-wrap gap-x-5 gap-y-4">
               <Button as="a" href="/" icon={<ArrowRightLongIcon className="size-5" />}>

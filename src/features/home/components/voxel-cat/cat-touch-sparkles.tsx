@@ -3,7 +3,7 @@
 import { createPortal } from 'react-dom';
 
 import { SparkleIcon } from '@/components/icons/sparkles-icon';
-import type { CatTouchTarget } from './cat-touch-input';
+import type { CatTouchTarget } from './cat-pointer-input';
 
 const sparkles = [
   { x: 0, y: 0, size: 22, delay: 0 },

@@ -2,12 +2,14 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { createCatDriver } from '@/features/home/components/voxel-cat/cat-driver';
 import { createVoxelCatModel, type VoxelCatTheme } from '@/features/home/components/voxel-cat/create-voxel-cat-model';
+import { createCatScript } from './knockoff-cat-script';
+import { createDigits, isStanding, restDigit, SHELF, shove, updateDigit } from './knockoff-digits';
 
 /**
  * 404 scene: the voxel cat sits on a shelf next to a blocky "404" and, being a cat, knocks
  * each digit off the edge, one tap-tap-shove at a time. Visitors can shove digits themselves
- * or click the cat to hurry it along. Units are the cat model's own blocks; the shelf top is
- * y = 0, +Z points at the camera.
+ * or click the cat to hurry it along. This module owns the renderer, input and frame loop;
+ * the digits and the cat's choreography live beside it.
  */
 
 export type KnockoffStatus = 'playing' | 'empty' | 'rebuilding';
@@ -26,10 +28,6 @@ export type KnockoffScene = {
   rebuild: () => void;
   dispose: () => void;
 };
-
-/* ------------------------------------------------------------------------------------------ */
-/* Look                                                                                         */
-/* ------------------------------------------------------------------------------------------ */
 
 /** Site tokens, resolved to sRGB: primary #f6b846, the button's #86662D underside, black. */
 const SCENE_PALETTES = {
@@ -54,83 +52,15 @@ const ELEVATION = 0.32;
 const LOOK_AT = new THREE.Vector3(-3.5, 3.6, -1);
 /** Blocks that must stay in frame, at any aspect ratio. */
 const FRAME = { width: 50, height: 27 };
-
-const SHELF = { minX: -25.5, maxX: 19, minZ: -10, maxZ: 4.6, top: 1.5, under: 0.75, base: 0.75 };
-
-/* ------------------------------------------------------------------------------------------ */
-/* Digits                                                                                       */
-/* ------------------------------------------------------------------------------------------ */
-
-const VOXEL = 1.7;
-const GLYPHS: Record<string, string[]> = {
-  '4': ['#.#', '#.#', '###', '..#', '..#'],
-  '0': ['###', '#.#', '#.#', '#.#', '###'],
-};
-const DIGIT_W = 3 * VOXEL;
-const DIGIT_H = 5 * VOXEL;
-const DIGIT_D = VOXEL;
-/** Digit centres along the shelf, left to right. */
-const DIGIT_X = [-18, -10, -2];
-/** Resting depth of a digit's centre: just behind the shelf's front edge. */
-const DIGIT_Z = 2.4;
-const GRAVITY = 70;
-
-type DigitState = 'resting' | 'wobbling' | 'sliding' | 'tipping' | 'falling' | 'gone' | 'dropping';
-
-type Digit = {
-  index: number;
-  group: THREE.Group;
-  meshes: THREE.Mesh[];
-  home: THREE.Vector3;
-  state: DigitState;
-  /** Claimed by the cat's current approach. */
-  claimed: boolean;
-  t: number;
-  tip: number;
-  tipVel: number;
-  pivotZ: number;
-  slideFrom: number;
-  velocity: THREE.Vector3;
-  spin: THREE.Vector3;
-  dropDelay: number;
-};
-
-/* ------------------------------------------------------------------------------------------ */
-/* Cat choreography                                                                             */
-/* ------------------------------------------------------------------------------------------ */
-
-const CAT_HOME = { x: 12.5, z: -1.2, yaw: -0.47 };
-/** Facing mostly left: the camera-side (left) paw does the swatting. */
-const SWAT_YAW = -1.15;
-/** How far ahead of the cat's origin the raised paw lands, and how far off-centre it sits. */
-const PAW_REACH = 8.6;
-const PAW_SIDE = 2.07;
+/** Below the `sm` breakpoint the canvas is full-bleed: crop to just inside the shelf so it runs edge to edge. */
+const COMPACT_FRAME = { width: 43, height: 27 };
+const COMPACT_BELOW = 640;
+/** Extra reach for fingers, in CSS pixels, when a tap lands just beside a block or the cat. */
+const TOUCH_SLOP = 14;
 /** Just below the canvas, where the status line and its "Put it back" button sit. */
 const BUTTON_SPOT = new THREE.Vector3(LOOK_AT.x, -16, 8);
 
-const smooth = (t: number) => {
-  const x = Math.min(1, Math.max(0, t));
-  return x * x * (3 - 2 * x);
-};
 const lerp = THREE.MathUtils.lerp;
-
-/** Where the cat sits to swat a digit's right-hand face with its left front paw. */
-function swatSpot(digitX: number) {
-  const forwardX = Math.sin(SWAT_YAW);
-  const forwardZ = Math.cos(SWAT_YAW);
-  // The model's own +X (its left side) in world space.
-  const leftX = Math.cos(SWAT_YAW);
-  const leftZ = -Math.sin(SWAT_YAW);
-  const contactX = digitX + DIGIT_W / 2 + 0.15;
-  const contactZ = DIGIT_Z;
-  return {
-    x: contactX - forwardX * PAW_REACH - leftX * PAW_SIDE,
-    z: contactZ - forwardZ * PAW_REACH - leftZ * PAW_SIDE,
-    yaw: SWAT_YAW,
-  };
-}
-
-/* ------------------------------------------------------------------------------------------ */
 
 export function createKnockoffScene(options: KnockoffSceneOptions): KnockoffScene {
   const { canvas, onStatusChange } = options;
@@ -164,13 +94,16 @@ export function createKnockoffScene(options: KnockoffSceneOptions): KnockoffScen
   fill.position.set(5, 2, 2);
   scene.add(fill);
 
-  /* Shelf: three stacked slabs, the site's 3D button turned into furniture. */
-  const palette = () => SCENE_PALETTES[theme];
-  const shelfMaterials = {
-    top: new THREE.MeshStandardMaterial({ color: palette().shelf, roughness: 0.75 }),
-    under: new THREE.MeshStandardMaterial({ color: palette().shelfUnder, roughness: 0.8 }),
-    base: new THREE.MeshStandardMaterial({ color: palette().shelfBase, roughness: 0.85 }),
+  /** One material per palette colour; `paint` recolours them all for the current theme. */
+  const materials = {
+    shelf: new THREE.MeshStandardMaterial({ roughness: 0.75 }),
+    shelfUnder: new THREE.MeshStandardMaterial({ roughness: 0.8 }),
+    shelfBase: new THREE.MeshStandardMaterial({ roughness: 0.85 }),
+    digit: new THREE.MeshStandardMaterial({ roughness: 0.7 }),
+    digitAlt: new THREE.MeshStandardMaterial({ roughness: 0.7 }),
   };
+
+  /* Shelf: three stacked slabs, the site's 3D button turned into furniture. */
   const shelf = new THREE.Group();
   const shelfW = SHELF.maxX - SHELF.minX;
   const shelfD = SHELF.maxZ - SHELF.minZ;
@@ -187,57 +120,24 @@ export function createKnockoffScene(options: KnockoffSceneOptions): KnockoffScen
     shelf.add(mesh);
     return mesh;
   };
-  slab(SHELF.top, -SHELF.top / 2, shelfMaterials.top, 0);
-  slab(SHELF.under, -SHELF.top - SHELF.under / 2 + 0.05, shelfMaterials.under, 0.01);
-  // Like the site's buttons, the darkest layer only shows in the light theme.
-  const shelfBase = slab(SHELF.base, -SHELF.top - SHELF.under - SHELF.base / 2 + 0.1, shelfMaterials.base, 0.02);
-  shelfBase.visible = theme === 'light';
+  slab(SHELF.top, -SHELF.top / 2, materials.shelf, 0);
+  slab(SHELF.under, -SHELF.top - SHELF.under / 2 + 0.05, materials.shelfUnder, 0.01);
+  const shelfBase = slab(SHELF.base, -SHELF.top - SHELF.under - SHELF.base / 2 + 0.1, materials.shelfBase, 0.02);
   scene.add(shelf);
+  /** Shelf vibration left over from a digit landing hard on it. */
+  let shelfThud = 0;
 
-  /* Digits */
-  const voxelGeometry = new RoundedBoxGeometry(VOXEL * 0.97, VOXEL * 0.97, VOXEL * 0.97, 2, 0.14);
-  geometries.push(voxelGeometry);
-  const digitMaterials = {
-    main: new THREE.MeshStandardMaterial({ color: palette().digit, roughness: 0.7 }),
-    alt: new THREE.MeshStandardMaterial({ color: palette().digitAlt, roughness: 0.7 }),
+  const paint = () => {
+    const palette = SCENE_PALETTES[theme];
+    for (const name of Object.keys(materials) as (keyof typeof materials)[]) materials[name].color.set(palette[name]);
+    // Like the site's buttons, the darkest layer only shows in the light theme.
+    shelfBase.visible = theme === 'light';
   };
-  const digits: Digit[] = ['4', '0', '4'].map((char, index): Digit => {
-    const group = new THREE.Group();
-    const meshes: THREE.Mesh[] = [];
-    GLYPHS[char].forEach((row, r) => {
-      [...row].forEach((cell, c) => {
-        if (cell !== '#') return;
-        const material = (r + c) % 2 === 0 ? digitMaterials.main : digitMaterials.alt;
-        const mesh = new THREE.Mesh(voxelGeometry, material);
-        // Centred on the digit's centre of mass, so falling spins look right.
-        mesh.position.set((c - 1) * VOXEL, (2 - r) * VOXEL, 0);
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-        mesh.userData.digit = index;
-        group.add(mesh);
-        meshes.push(mesh);
-      });
-    });
-    const home = new THREE.Vector3(DIGIT_X[index], DIGIT_H / 2, DIGIT_Z);
-    group.position.copy(home);
-    scene.add(group);
-    return {
-      index,
-      group,
-      meshes,
-      home,
-      state: 'resting',
-      claimed: false,
-      t: 0,
-      tip: 0,
-      tipVel: 0,
-      pivotZ: 0,
-      slideFrom: 0,
-      velocity: new THREE.Vector3(),
-      spin: new THREE.Vector3(),
-      dropDelay: 0,
-    };
-  });
+  paint();
+
+  const { digits, geometry: voxelGeometry } = createDigits({ main: materials.digit, alt: materials.digitAlt });
+  geometries.push(voxelGeometry);
+  for (const digit of digits) scene.add(digit.group);
 
   /* Cat */
   const model = createVoxelCatModel({ theme });
@@ -251,398 +151,24 @@ export function createKnockoffScene(options: KnockoffSceneOptions): KnockoffScen
   const pawRest = pawL.rotation.clone();
   const catMeshes = Object.values(model.parts);
 
-  const catPose = {
-    x: CAT_HOME.x,
-    z: CAT_HOME.z,
-    yaw: CAT_HOME.yaw,
-    hop: 0,
-    squash: 0,
-    lean: 0,
-    paw: 0,
-    pawOut: 0,
-    /** Head override on top of the idle and cursor pose, blended in by `focus`. */
-    focus: 0,
-    lookYaw: 0,
-    lookPitch: 0,
-  };
-  const applyCat = () => {
-    catRoot.position.set(catPose.x, catPose.hop, catPose.z);
-    catRoot.rotation.set(catPose.lean, catPose.yaw, 0, 'YXZ');
-    catRoot.scale.set(1 + catPose.squash * 0.5, 1 - catPose.squash, 1 + catPose.squash * 0.5);
-    pawL.rotation.set(pawRest.x + catPose.paw, pawRest.y, pawRest.z + catPose.pawOut);
-  };
-  applyCat();
-
-  /* -------------------------------------------------------------------------------------- */
-  /* Timeline: promises resolved by the frame loop, so everything pauses with the page.     */
-  /* -------------------------------------------------------------------------------------- */
-
-  type Tween = { elapsed: number; duration: number; step: (k: number) => void; resolve: () => void };
-  let tweens: Tween[] = [];
-  /** Bumped to cancel whatever script is running. */
-  let generation = 0;
-  class Cancelled extends Error {}
-
-  const tween = (duration: number, step: (k: number) => void, gen: number) =>
-    new Promise<void>((resolve, reject) => {
-      if (gen !== generation) return reject(new Cancelled());
-      tweens.push({
-        elapsed: 0,
-        duration,
-        step,
-        resolve: () => (gen === generation ? resolve() : reject(new Cancelled())),
-      });
-    });
-  const wait = (seconds: number, gen: number) => tween(seconds, () => {}, gen);
-
-  const advanceTweens = (dt: number) => {
-    const running = tweens;
-    tweens = [];
-    for (const item of running) {
-      item.elapsed += dt;
-      const k = Math.min(1, item.elapsed / item.duration);
-      item.step(k);
-      if (k >= 1) item.resolve();
-      else tweens.push(item);
-    }
-  };
-
-  /** Ease the head override to a target. */
-  const look = (yaw: number, pitch: number, focus: number, duration: number, gen: number) => {
-    const from = { yaw: catPose.lookYaw, pitch: catPose.lookPitch, focus: catPose.focus };
-    return tween(
-      duration,
-      (k) => {
-        const e = smooth(k);
-        catPose.lookYaw = lerp(from.yaw, yaw, e);
-        catPose.lookPitch = lerp(from.pitch, pitch, e);
-        catPose.focus = lerp(from.focus, focus, e);
-      },
-      gen,
-    );
-  };
-
-  const hop = async (to: { x: number; z: number; yaw: number }, gen: number) => {
-    const distance = Math.hypot(to.x - catPose.x, to.z - catPose.z);
-    const air = 0.3 + Math.min(distance, 12) * 0.018;
-    const height = 1.6 + Math.min(distance, 12) * 0.12;
-    await tween(0.14, (k) => (catPose.squash = 0.12 * smooth(k)), gen);
-    const from = { x: catPose.x, z: catPose.z, yaw: catPose.yaw };
-    await tween(
-      air,
-      (k) => {
-        catPose.x = lerp(from.x, to.x, k);
-        catPose.z = lerp(from.z, to.z, k);
-        catPose.yaw = lerp(from.yaw, to.yaw, smooth(k));
-        catPose.hop = 4 * height * k * (1 - k);
-        catPose.squash = k < 0.25 ? lerp(0.12, -0.08, k / 0.25) : lerp(-0.08, 0, (k - 0.25) / 0.75);
-      },
-      gen,
-    );
-    catPose.hop = 0;
-    await tween(0.1, (k) => (catPose.squash = 0.1 * Math.sin(k * Math.PI)), gen);
-    catPose.squash = 0;
-  };
-
-  const turn = (yaw: number, duration: number, gen: number) => {
-    const from = catPose.yaw;
-    return tween(duration, (k) => (catPose.yaw = lerp(from, yaw, smooth(k))), gen);
-  };
-
-  /** Raise the paw, then a quick tap; `strength` 0..1 sets how far it reaches. */
-  const tap = async (gen: number, onContact: () => void, windUp = 0.3) => {
-    await tween(
-      windUp,
-      (k) => {
-        const e = smooth(k);
-        catPose.paw = -1.45 * e;
-        catPose.pawOut = 0.12 * e;
-        catPose.lean = -0.04 * e;
-      },
-      gen,
-    );
-    await tween(0.07, (k) => (catPose.paw = lerp(-1.45, -1.12, k)), gen);
-    onContact();
-    await tween(
-      0.32,
-      (k) => {
-        const e = smooth(k);
-        catPose.paw = lerp(-1.12, 0, e);
-        catPose.pawOut = lerp(0.12, 0, e);
-        catPose.lean = lerp(-0.04, 0, e);
-      },
-      gen,
-    );
-  };
-
-  /* -------------------------------------------------------------------------------------- */
-  /* Digit physics                                                                           */
-  /* -------------------------------------------------------------------------------------- */
-
-  const shelfFront = SHELF.maxZ;
-  const pivot = new THREE.Vector3();
-  const offset = new THREE.Vector3();
-  const xAxis = new THREE.Vector3(1, 0, 0);
-  const spinQ = new THREE.Quaternion();
-  const spinAxis = new THREE.Vector3();
-
-  const wobble = (digit: Digit) => {
-    if (digit.state !== 'resting') return;
-    digit.state = 'wobbling';
-    digit.t = 0;
-  };
-
-  const shove = (digit: Digit, strength = 1) => {
-    if (digit.state !== 'resting' && digit.state !== 'wobbling') return;
-    digit.state = 'sliding';
-    digit.t = 0;
-    digit.slideFrom = digit.group.position.z;
-    digit.tip = 0;
-    digit.tipVel = 1.6 + strength * 1.2;
-    digit.group.rotation.set(0, 0, 0);
-  };
-
-  const anyStanding = () =>
-    digits.some((d) => d.state === 'resting' || d.state === 'wobbling' || d.state === 'dropping');
-
-  const updateDigit = (digit: Digit, dt: number) => {
-    const g = digit.group;
-    digit.t += dt;
-    switch (digit.state) {
-      case 'wobbling': {
-        // Rock forward onto the front edge and settle back: the "hmm, that moved" tap.
-        const a = 0.17 * Math.abs(Math.sin(digit.t * 13)) * Math.exp(-digit.t * 5.5);
-        pivot.set(g.position.x, 0, digit.home.z + DIGIT_D / 2);
-        offset.set(0, DIGIT_H / 2, -DIGIT_D / 2).applyAxisAngle(xAxis, a);
-        g.position.set(digit.home.x, pivot.y + offset.y, pivot.z + offset.z);
-        g.rotation.set(a, 0, 0);
-        if (digit.t > 0.9) {
-          g.position.copy(digit.home);
-          g.rotation.set(0, 0, 0);
-          digit.state = 'resting';
-        }
-        break;
-      }
-      case 'sliding': {
-        // A short skid to the lip, then it pivots over the edge.
-        const target = shelfFront - DIGIT_D / 2;
-        const k = Math.min(1, digit.t / 0.16);
-        g.position.z = lerp(digit.slideFrom, target, 1 - (1 - k) * (1 - k));
-        g.position.y = DIGIT_H / 2;
-        if (k >= 1) {
-          digit.state = 'tipping';
-          digit.t = 0;
-          digit.pivotZ = shelfFront;
-        }
-        break;
-      }
-      case 'tipping': {
-        digit.tipVel += (5 + 22 * Math.sin(digit.tip + 0.2)) * dt;
-        digit.tip += digit.tipVel * dt;
-        pivot.set(g.position.x, 0, digit.pivotZ);
-        offset.set(0, DIGIT_H / 2, -DIGIT_D / 2).applyAxisAngle(xAxis, digit.tip);
-        g.position.set(g.position.x, offset.y, pivot.z + offset.z);
-        g.rotation.set(digit.tip, 0, 0);
-        if (digit.tip > 0.95) {
-          // Hand over to free fall with the centre of mass's current velocity.
-          const r = offset.length();
-          const dir = offset.clone().normalize();
-          // Tangential direction for rotation about +X.
-          digit.velocity.set(
-            (Math.random() - 0.5) * 3,
-            -dir.z * r * digit.tipVel * 0.9,
-            dir.y * r * digit.tipVel * 0.9,
-          );
-          digit.spin.set(digit.tipVel * 0.9, (Math.random() - 0.5) * 1.5, (Math.random() - 0.5) * 2.5);
-          digit.state = 'falling';
-          digit.t = 0;
-        }
-        break;
-      }
-      case 'falling': {
-        digit.velocity.y -= GRAVITY * dt;
-        g.position.addScaledVector(digit.velocity, dt);
-        const speed = digit.spin.length();
-        if (speed > 0) {
-          spinQ.setFromAxisAngle(spinAxis.copy(digit.spin).normalize(), speed * dt);
-          g.quaternion.premultiply(spinQ);
-        }
-        if (g.position.y < -60) {
-          digit.state = 'gone';
-          g.visible = false;
-        }
-        break;
-      }
-      case 'dropping': {
-        if (digit.t < digit.dropDelay) {
-          g.visible = false;
-          break;
-        }
-        g.visible = true;
-        digit.velocity.y -= GRAVITY * 1.2 * dt;
-        g.position.y += digit.velocity.y * dt;
-        if (g.position.y <= digit.home.y) {
-          g.position.y = digit.home.y;
-          if (Math.abs(digit.velocity.y) > 6) {
-            digit.velocity.y = -digit.velocity.y * 0.28;
-            shelfThud = Math.max(shelfThud, 0.25);
-          } else {
-            digit.velocity.y = 0;
-            digit.state = 'resting';
-            g.scale.set(1, 1, 1);
-          }
-        }
-        // Squash on contact, stretch in the air.
-        const v = Math.min(1, Math.abs(digit.velocity.y) / 40);
-        const grounded = g.position.y - digit.home.y < 0.4;
-        const s = grounded ? -0.12 * v : 0.08 * v;
-        g.scale.set(1 - s * 0.5, 1 + s, 1 - s * 0.5);
-        break;
-      }
-      default:
-        break;
-    }
-  };
-
-  let shelfThud = 0;
-
-  /* -------------------------------------------------------------------------------------- */
-  /* Scripts                                                                                 */
-  /* -------------------------------------------------------------------------------------- */
-
   let status: KnockoffStatus = 'playing';
   const setStatus = (next: KnockoffStatus) => {
     if (next === status) return;
     status = next;
+    // Once the shelf is empty there is nothing left to click on the canvas.
+    if (next === 'empty') canvas.style.cursor = '';
     onStatusChange?.(next);
   };
 
-  /** What the eyes follow while the script runs: a digit (even mid-fall), a fixed spot, or rest. */
-  let gaze: Digit | THREE.Vector3 | null = null;
-
-  let hurry: (() => void) | null = null;
-  /**
-   * Choreography speed. Each click on the cat raises the target a step; the speed eases
-   * towards it, and once the clicks stop the target drifts back to normal.
-   */
-  const RUSH = { step: 0.2, max: 2, rise: 0.2, hold: 0.4, fall: 0.6 };
-  let rush = 1;
-  let rushTarget = 1;
-  /** Seconds since the last click on the cat. */
-  let rushIdle = 0;
-  const resetRush = () => {
-    rush = 1;
-    rushTarget = 1;
-    rushIdle = 0;
+  const script = createCatScript({ digits, buttonSpot: BUTTON_SPOT, setStatus });
+  const pose = script.pose;
+  const applyCat = () => {
+    catRoot.position.set(pose.x, pose.hop, pose.z);
+    catRoot.rotation.set(pose.lean, pose.yaw, 0, 'YXZ');
+    catRoot.scale.set(1 + pose.squash * 0.5, 1 - pose.squash, 1 + pose.squash * 0.5);
+    pawL.rotation.set(pawRest.x + pose.paw, pawRest.y, pawRest.z + pose.pawOut);
   };
-  const updateRush = (dt: number) => {
-    rushIdle += dt;
-    if (rushIdle > RUSH.hold) rushTarget = Math.max(1, rushTarget - ((RUSH.max - 1) / RUSH.fall) * dt);
-    // Exponential approach: about 95% of the way there after `rise` seconds.
-    rush += (rushTarget - rush) * (1 - Math.exp((-3 * dt) / RUSH.rise));
-  };
-  /** A wait the visitor can cut short by clicking the cat. */
-  const patience = (seconds: number, gen: number) =>
-    new Promise<void>((resolve, reject) => {
-      let done = false;
-      const finish = () => {
-        if (done) return;
-        done = true;
-        hurry = null;
-        if (gen === generation) resolve();
-        else reject(new Cancelled());
-      };
-      hurry = finish;
-      wait(seconds, gen).then(finish, (error) => {
-        done = true;
-        hurry = null;
-        reject(error);
-      });
-    });
-
-  const nextTarget = () =>
-    [...digits].reverse().find((d) => (d.state === 'resting' || d.state === 'wobbling') && !d.claimed) ?? null;
-
-  const knockEverything = async (gen: number) => {
-    await patience(1.6, gen);
-    for (;;) {
-      const digit = nextTarget();
-      if (!digit) break;
-      digit.claimed = true;
-      gaze = digit;
-      try {
-        // Notice it, go over.
-        await look(0.35, 0.15, 1, 0.35, gen);
-        await wait(0.25, gen);
-        await look(0, 0.3, 1, 0.2, gen);
-        await hop(swatSpot(digit.home.x), gen);
-        await look(0, 0.3, 1, 0.25, gen);
-        await wait(0.3, gen);
-
-        if (digit.state === 'resting' || digit.state === 'wobbling') {
-          // Tap. Watch it rock. Look at you. Shove.
-          await tap(gen, () => wobble(digit));
-          await wait(0.45, gen);
-          gaze = null;
-          await look(0.75, -0.05, 1, 0.3, gen);
-          await wait(0.55, gen);
-          gaze = digit;
-          await look(0, 0.3, 1, 0.25, gen);
-          await tap(gen, () => shove(digit), 0.22);
-        }
-        // Follow it down.
-        await look(0.6, 0.62, 1, 0.3, gen);
-        await wait(0.55, gen);
-        await look(0.7, 0, 0.6, 0.45, gen);
-      } finally {
-        digit.claimed = false;
-        gaze = null;
-      }
-      await patience(1.1, gen);
-    }
-
-    // Nothing left to knock over: face the audience, very pleased, and eye the button.
-    gaze = BUTTON_SPOT;
-    await turn(-0.25, 0.45, gen);
-    await look(0, 0, 0, 0.4, gen);
-    setStatus('empty');
-    canvas.style.cursor = '';
-  };
-
-  const rebuildScript = async (gen: number) => {
-    setStatus('rebuilding');
-    await hop(CAT_HOME, gen);
-    await look(0.3, -0.35, 1, 0.3, gen);
-    digits.forEach((digit, i) => {
-      digit.group.position.set(digit.home.x, digit.home.y + 30, digit.home.z);
-      digit.group.rotation.set(0, 0, 0);
-      digit.group.quaternion.identity();
-      digit.velocity.set(0, 0, 0);
-      digit.state = 'dropping';
-      digit.claimed = false;
-      digit.t = 0;
-      digit.dropDelay = i * 0.14;
-    });
-    // Watch them rain back in, the middle one for all three.
-    gaze = digits[1];
-    await look(0.25, 0.1, 1, 0.6, gen);
-    await wait(0.5, gen);
-    gaze = null;
-    await look(0, 0, 0, 0.4, gen);
-    setStatus('playing');
-    await knockEverything(gen);
-  };
-
-  const run = (script: (gen: number) => Promise<void>) => {
-    generation += 1;
-    tweens = [];
-    hurry = null;
-    resetRush();
-    const gen = generation;
-    script(gen).catch((error) => {
-      if (!(error instanceof Cancelled)) throw error;
-    });
-  };
+  applyCat();
 
   /* -------------------------------------------------------------------------------------- */
   /* Input                                                                                    */
@@ -660,14 +186,25 @@ export function createKnockoffScene(options: KnockoffSceneOptions): KnockoffScen
     return box;
   };
 
-  const pick = (clientX: number, clientY: number) => {
+  const pickAt = (clientX: number, clientY: number) => {
     toNdc(clientX, clientY);
     raycaster.setFromCamera(ndc, camera);
-    const standing = digits.filter((d) => d.state === 'resting' || d.state === 'wobbling').flatMap((d) => d.meshes);
+    const standing = digits.filter(isStanding).flatMap((d) => d.meshes);
     const hit = raycaster.intersectObjects([...standing, ...catMeshes], false)[0];
     if (!hit) return null;
     const index = hit.object.userData.digit as number | undefined;
     return index === undefined ? ({ kind: 'cat' } as const) : ({ kind: 'digit', digit: digits[index] } as const);
+  };
+  /** Exact hit first; with `slop`, then a ring of points around it. */
+  const pick = (clientX: number, clientY: number, slop = 0) => {
+    const exact = pickAt(clientX, clientY);
+    if (exact || !slop) return exact;
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2;
+      const near = pickAt(clientX + Math.cos(angle) * slop, clientY + Math.sin(angle) * slop);
+      if (near) return near;
+    }
+    return null;
   };
 
   const onMove = (event: PointerEvent) => {
@@ -675,7 +212,6 @@ export function createKnockoffScene(options: KnockoffSceneOptions): KnockoffScen
     pointer.x = event.clientX;
     pointer.y = event.clientY;
     pointer.active = true;
-    // Once the shelf is empty there is nothing left to click on the canvas.
     if (!reduced) canvas.style.cursor = status !== 'empty' && pick(event.clientX, event.clientY) ? 'pointer' : '';
   };
   const onLeave = () => {
@@ -684,15 +220,10 @@ export function createKnockoffScene(options: KnockoffSceneOptions): KnockoffScen
   };
   const onDown = (event: PointerEvent) => {
     if (reduced) return;
-    const target = pick(event.clientX, event.clientY);
+    const target = pick(event.clientX, event.clientY, event.pointerType === 'touch' ? TOUCH_SLOP : 0);
     if (!target) return;
     if (target.kind === 'digit') shove(target.digit, 1.4);
-    else {
-      // Clicking the cat skips the pause and nudges its speed up a step.
-      rushTarget = Math.min(RUSH.max, rushTarget + RUSH.step);
-      rushIdle = 0;
-      hurry?.();
-    }
+    else script.hurry();
     if (event.pointerType === 'touch') {
       pointer.x = event.clientX;
       pointer.y = event.clientY;
@@ -719,7 +250,8 @@ export function createKnockoffScene(options: KnockoffSceneOptions): KnockoffScen
     if (!width || !height) return;
     renderer.setSize(width, height, false);
     const aspect = width / height;
-    const halfH = Math.max(FRAME.height, FRAME.width / aspect) / 2;
+    const frame = width < COMPACT_BELOW ? COMPACT_FRAME : FRAME;
+    const halfH = Math.max(frame.height, frame.width / aspect) / 2;
     camera.left = -halfH * aspect;
     camera.right = halfH * aspect;
     camera.top = halfH;
@@ -733,15 +265,15 @@ export function createKnockoffScene(options: KnockoffSceneOptions): KnockoffScen
 
   const render = (dt: number) => {
     if (!reduced) {
-      updateRush(dt);
-      advanceTweens(dt * rush);
-      for (const digit of digits) updateDigit(digit, dt);
+      script.update(dt);
+      for (const digit of digits) if (updateDigit(digit, dt)) shelfThud = Math.max(shelfThud, 0.25);
       shelfThud = Math.max(0, shelfThud - dt * 2.5);
       shelf.position.y = -Math.sin(shelfThud * Math.PI * 4) * shelfThud * 0.25;
     }
     applyCat();
 
     // The cat only watches the cursor once its work is done; mid-routine it minds the digits.
+    const gaze = script.gaze;
     if (pointer.active && !reduced && status === 'empty') {
       const box = toNdc(pointer.x, pointer.y);
       if (box.width && box.height) cat.setPointer(ndc.x, ndc.y, box.width, box.height);
@@ -749,9 +281,9 @@ export function createKnockoffScene(options: KnockoffSceneOptions): KnockoffScen
     else cat.clearPointer();
     cat.update(dt, camera);
     // The rig rewrote the head from idle + cursor; lean that towards the scripted look.
-    if (catPose.focus > 0) {
-      head.rotation.y = lerp(head.rotation.y, headRest.y + catPose.lookYaw, catPose.focus);
-      head.rotation.x = lerp(head.rotation.x, headRest.x + catPose.lookPitch, catPose.focus);
+    if (pose.focus > 0) {
+      head.rotation.y = lerp(head.rotation.y, headRest.y + pose.lookYaw, pose.focus);
+      head.rotation.x = lerp(head.rotation.x, headRest.x + pose.lookPitch, pose.focus);
     }
     renderer.render(scene, camera);
   };
@@ -780,30 +312,8 @@ export function createKnockoffScene(options: KnockoffSceneOptions): KnockoffScen
   document.addEventListener('visibilitychange', sync);
 
   const restoreStatic = () => {
-    generation += 1;
-    tweens = [];
-    hurry = null;
-    resetRush();
-    gaze = null;
-    Object.assign(catPose, {
-      ...CAT_HOME,
-      hop: 0,
-      squash: 0,
-      lean: 0,
-      paw: 0,
-      pawOut: 0,
-      focus: 0,
-      lookYaw: 0,
-      lookPitch: 0,
-    });
-    for (const digit of digits) {
-      digit.state = 'resting';
-      digit.claimed = false;
-      digit.group.visible = true;
-      digit.group.position.copy(digit.home);
-      digit.group.quaternion.identity();
-      digit.group.scale.set(1, 1, 1);
-    }
+    script.reset();
+    for (const digit of digits) restDigit(digit);
     shelf.position.y = 0;
     cat.reset();
     canvas.style.cursor = '';
@@ -814,19 +324,14 @@ export function createKnockoffScene(options: KnockoffSceneOptions): KnockoffScen
   if (reduced) {
     restoreStatic();
     render(0);
-  } else run(knockEverything);
+  } else script.play();
   sync();
 
   return {
     setTheme(next) {
       theme = next;
       model.setTheme(next);
-      shelfMaterials.top.color.set(palette().shelf);
-      shelfMaterials.under.color.set(palette().shelfUnder);
-      shelfMaterials.base.color.set(palette().shelfBase);
-      shelfBase.visible = next === 'light';
-      digitMaterials.main.color.set(palette().digit);
-      digitMaterials.alt.color.set(palette().digitAlt);
+      paint();
       if (!looping) render(0);
     },
     setReducedMotion(next) {
@@ -834,15 +339,15 @@ export function createKnockoffScene(options: KnockoffSceneOptions): KnockoffScen
       reduced = next;
       restoreStatic();
       if (reduced) render(0);
-      else run(knockEverything);
+      else script.play();
       sync();
     },
     rebuild() {
-      if (reduced || anyStanding()) return;
-      run(rebuildScript);
+      if (reduced || digits.some((d) => isStanding(d) || d.state === 'dropping')) return;
+      script.rebuild();
     },
     dispose() {
-      generation += 1;
+      script.reset();
       renderer.setAnimationLoop(null);
       resizes.disconnect();
       intersection.disconnect();
@@ -854,7 +359,7 @@ export function createKnockoffScene(options: KnockoffSceneOptions): KnockoffScen
       document.removeEventListener('visibilitychange', sync);
       model.dispose();
       for (const geometry of geometries) geometry.dispose();
-      for (const material of [...Object.values(shelfMaterials), ...Object.values(digitMaterials)]) material.dispose();
+      for (const material of Object.values(materials)) material.dispose();
       renderer.dispose();
     },
   };

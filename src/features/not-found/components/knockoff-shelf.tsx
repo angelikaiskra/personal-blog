@@ -4,12 +4,14 @@ import { useTheme } from 'next-themes';
 import { useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import type { VoxelCatTheme } from '@/features/home/components/voxel-cat/create-voxel-cat-model';
 import type { KnockoffScene, KnockoffStatus } from './knockoff-scene';
 
-const isDark = (resolvedTheme: string | undefined) =>
-  resolvedTheme ? resolvedTheme === 'dark' : document.documentElement.classList.contains('dark');
+const sceneTheme = (resolvedTheme?: string): VoxelCatTheme =>
+  (resolvedTheme ?? (document.documentElement.classList.contains('dark') ? 'dark' : 'light')) === 'dark'
+    ? 'dark'
+    : 'light';
 
-/** The 404 hero: the voxel cat clearing "404" off a shelf. Three.js loads only in the browser. */
 export function KnockoffShelf() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<KnockoffScene | null>(null);
@@ -35,12 +37,11 @@ export function KnockoffShelf() {
         if (cancelled) return;
         sceneRef.current = createKnockoffScene({
           canvas,
-          theme: isDark(undefined) ? 'dark' : 'light',
+          theme: sceneTheme(),
           reducedMotion: motion.matches,
           onStatusChange: setStatus,
         });
       })
-      // No WebGL (or a failed chunk): the copy below still does the job.
       .catch(() => !cancelled && setFailed(true));
 
     return () => {
@@ -52,13 +53,13 @@ export function KnockoffShelf() {
   }, []);
 
   useEffect(() => {
-    sceneRef.current?.setTheme(isDark(resolvedTheme) ? 'dark' : 'light');
+    sceneRef.current?.setTheme(sceneTheme(resolvedTheme));
   }, [resolvedTheme]);
 
   if (failed) return null;
 
   return (
-    <div className="relative isolate">
+    <div className="relative isolate -mx-5 sm:mx-0">
       <div
         className="absolute inset-x-[4%] top-[6%] bottom-[26%] -z-10 rounded-[45%] bg-cat-halo/10 dark:bg-cat-halo/5"
         aria-hidden="true"
@@ -67,10 +68,10 @@ export function KnockoffShelf() {
         ref={canvasRef}
         role="img"
         aria-label="An orange voxel cat sitting on a yellow shelf next to the blocks 4, 0, 4, knocking them off one by one"
-        className="block aspect-2/1 w-full touch-pan-y mask-b-from-72% mask-b-to-98%"
+        className="block aspect-8/5 w-full touch-pan-y mask-b-from-72% mask-b-to-98% sm:aspect-2/1"
       />
       <div
-        className="-mt-[4%] flex min-h-10 flex-wrap items-center justify-center gap-3.5 text-center font-code text-[13px] text-muted-fg"
+        className="-mt-[4%] flex min-h-10 flex-wrap items-center justify-center gap-3.5 px-5 text-center font-code text-[13px] text-muted-fg sm:px-0"
         aria-live="polite"
       >
         {status === 'playing' && !reduced && <p>Click a block to help. Click the cat to hurry it up.</p>}

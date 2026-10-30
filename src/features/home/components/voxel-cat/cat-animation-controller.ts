@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+
 export const CAT_IDLE = {
   breath: { duration: 3.8, inhale: 0.42, depth: 0.06 },
   blink: { interval: [2, 4.5], close: 0.1, hold: 0.065, open: 0.2, doubleChance: 0.2, doubleGap: 0.16 },
@@ -41,10 +43,7 @@ export const neutralCatPose = (): CatPose => ({
   tail4: 0,
 });
 
-const smooth = (t: number) => {
-  const x = Math.max(0, Math.min(1, t));
-  return Math.max(0, Math.min(1, x * x * x * (x * (x * 6 - 15) + 10)));
-};
+const smooth = (t: number) => THREE.MathUtils.smootherstep(t, 0, 1);
 const envelope = (t: number, attack: number, hold: number, release: number) =>
   t < 0 ? 0 : t < attack ? smooth(t / attack) : 1 - smooth((t - attack - hold) / release);
 
