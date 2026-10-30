@@ -26,7 +26,7 @@ export async function PostImage({
       alt={alt}
       sizes={sizes}
       placeholder={image.blurDataURL ? 'blur' : 'empty'}
-      className={cn('rounded-lg', className)}
+      className={cn('h-auto w-full rounded-lg', className)}
     />
   );
 
