@@ -35,8 +35,8 @@ export function AboutMeView() {
             <div className="absolute top-2 left-2 -z-1 h-full w-full rounded-xl bg-black dark:bg-[#211c1d]" />
             <Image
               src="/about-me-hero.jpg"
-              width={281}
-              height={280}
+              width={320}
+              height={480}
               className="h-auto w-80 rounded-xl"
               alt="Image of Angela smiling to the camera"
             />

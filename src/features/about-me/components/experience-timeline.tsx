@@ -39,7 +39,7 @@ type ExperienceTimelineProps = Omit<ComponentPropsWithoutRef<'ol'>, 'children'>;
 
 export function ExperienceTimeline({ className, ...props }: ExperienceTimelineProps) {
   return (
-    <ol className={cn('flex max-w-128 flex-col', className)} {...props}>
+    <ol className={cn('flex max-w-lg flex-col', className)} {...props}>
       {experiences.map(({ role, company, period, description }) => (
         <li key={`${company}-${period}`} className="group relative pb-10 pl-8 last:pb-0 sm:pb-12 sm:pl-10">
           <span aria-hidden className="absolute top-0 bottom-0 left-0.75 w-0.5 bg-muted-hover group-first:top-3.5" />
