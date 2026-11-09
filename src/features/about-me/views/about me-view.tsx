@@ -37,6 +37,7 @@ export function AboutMeView() {
               src="/about-me-hero.jpg"
               width={320}
               height={480}
+              preload
               className="h-auto w-80 rounded-xl"
               alt="Image of Angela smiling to the camera"
             />
