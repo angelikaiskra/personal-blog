@@ -138,4 +138,33 @@
       padding-inline: 1.25rem;
     }
   }
+
+  /* Code references. */
+  .code-block-pre [data-code-refs] {
+    transition:
+      background-color 150ms ease,
+      box-shadow 150ms ease;
+  }
+
+  .code-block-pre [data-code-ref-active] {
+    background-color: color-mix(in oklch, var(--link-accent) 7%, transparent);
+    box-shadow: inset 3px 0 0 var(--link-accent);
+  }
+
+  .code-block-pre [data-code-ref-active]:where(.dark, .dark *) {
+    background-color: color-mix(in oklch, var(--accent) 8%, transparent);
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+
+  @media (min-width: 48rem) and (max-width: 63.99rem) {
+    .code-block-pre [data-code-ref-active] {
+      box-shadow: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .code-block-pre [data-code-refs] {
+      transition: none;
+    }
+  }
 }

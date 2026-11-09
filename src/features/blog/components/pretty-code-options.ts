@@ -1,5 +1,7 @@
 import type { Options } from 'rehype-pretty-code';
 
+import { codeRefsTransformer } from '../lib/code-refs-transformer';
+
 export const prettyCodeOptions = {
   theme: {
     light: 'github-light',
@@ -9,4 +11,5 @@ export const prettyCodeOptions = {
   bypassInlineCode: true,
   defaultLang: { block: 'plaintext' },
   grid: false,
+  transformers: [codeRefsTransformer],
 } satisfies Options;

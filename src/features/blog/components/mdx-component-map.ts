@@ -6,6 +6,7 @@ import { VoxelCatHero } from '@/features/home/components/voxel-cat/voxel-cat-her
 import { Aside } from './mdx/aside/aside';
 import { CodeBlock } from './mdx/code-block/code-block';
 import { CodeBlockPre } from './mdx/code-block/code-block-pre';
+import { CodeRef } from './mdx/code-ref';
 import { linkedHeadingComponents } from './mdx/linked-heading';
 import { PostImage } from './mdx/post-image';
 import { PostModel } from './mdx/post-model/post-model';
@@ -20,6 +21,7 @@ export const mdxComponents = {
   Animated3dCat: VoxelCatHero,
   Aside,
   CodeBlock,
+  CodeRef,
   HighlightedText,
   PostImage,
   PostModel,
