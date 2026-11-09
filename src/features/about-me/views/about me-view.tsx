@@ -58,7 +58,7 @@ export function AboutMeView() {
 
         <div className="mt-6 flex flex-col items-center gap-y-10 sm:mt-8 lg:grid lg:grid-cols-[auto_1fr] lg:items-start lg:gap-x-14">
           <ExperienceTimeline className="self-stretch lg:order-last" />
-          <Image src="/owl.png" width={400} height={400} className="h-auto w-40 max-sm:hidden lg:w-36" alt="" />
+          <Image src="/owl.png" width={400} height={400} className="h-auto w-40 max-lg:hidden lg:w-36" alt="" />
         </div>
       </section>
       <section className="mt-20 sm:mt-24">
